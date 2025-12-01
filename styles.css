@@ -147,11 +147,11 @@ footer {
     position: fixed;
     top: 0;
     width: 100%;
-    background: rgba(10, 10, 10, 0.95);
-    backdrop-filter: blur(10px);
+    background: transparent;
+    backdrop-filter: none;
     z-index: 1000;
-    padding: 1rem 0;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 0.5rem 0;
+    border-bottom: none;
 }
 
 .navbar .container {
@@ -163,7 +163,7 @@ footer {
 .nav-logo {
     display: flex;
     align-items: center;
-    gap: 1.5rem;
+    gap: 1rem;
     font-size: 1.5rem;
     font-weight: 700;
     flex: 1;
@@ -177,7 +177,7 @@ footer {
 
 .nav-typing {
     font-family: 'Courier New', monospace;
-    font-size: 0.95rem;
+    font-size: 0.8rem;
     color: var(--text-secondary);
     margin: 0;
     white-space: pre-line;
@@ -201,7 +201,7 @@ footer {
 }
 
 .logo-img {
-    height: 100px;
+    height: 70px;
     width: auto;
     object-fit: contain;
     filter: brightness(1.15) drop-shadow(0 4px 12px rgba(0, 102, 255, 0.25));

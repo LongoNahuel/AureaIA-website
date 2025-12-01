@@ -1,0 +1,1386 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AureaIA - Inteligencia Artificial</title>
+    <link rel="icon" type="image/png" sizes="16x16" href="images/logo.png.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="images/logo.png.png">
+    <link rel="icon" type="image/png" sizes="96x96" href="images/logo.png.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="images/logo.png.png">
+    <link rel="stylesheet" href="styles.css?v=26.0">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+      /* Estilos del Carrusel 3D */
+      :root {
+        --carousel-primary: #6366f1;
+        --carousel-secondary: #8b5cf6;
+        --carousel-accent: #a855f7;
+        --card-width: 280px;
+        --card-height: 400px;
+        --carousel-radius: 360px;
+        --transition-speed: 0.5s;
+      }
+
+      .case-studies-section {
+        min-height: 700px;
+        position: relative;
+        overflow: visible;
+        padding: 80px 0 100px;
+      }
+
+      .case-studies-section::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-image: radial-gradient(1px 1px at 20% 30%, rgba(255,255,255,0.15), transparent),
+                          radial-gradient(1px 1px at 60% 70%, rgba(255,255,255,0.15), transparent),
+                          radial-gradient(1px 1px at 50% 50%, rgba(255,255,255,0.15), transparent),
+                          radial-gradient(2px 2px at 80% 10%, rgba(255,255,255,0.15), transparent);
+        background-size: 200px 200px, 300px 300px, 250px 250px, 400px 400px;
+        background-position: 0 0, 40px 60px, 130px 270px, 70px 100px;
+        animation: twinkleStars 20s linear infinite;
+        pointer-events: none;
+        opacity: 0.4;
+        z-index: 0;
+      }
+
+      @keyframes twinkleStars {
+        0%, 100% { opacity: 0.3; }
+        50% { opacity: 0.5; }
+      }
+
+      .carousel-container {
+        position: relative;
+        width: 100%;
+        height: 520px;
+        perspective: 2000px;
+        transform-style: preserve-3d;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        touch-action: none;
+        margin: 60px auto;
+        z-index: 1;
+      }
+
+      .carousel {
+        position: relative;
+        width: var(--carousel-radius);
+        height: var(--carousel-radius);
+        transform-style: preserve-3d;
+        transition: transform 0.5s ease;
+      }
+
+      .memory-card {
+        position: absolute;
+        width: var(--card-width);
+        height: var(--card-height);
+        left: 50%;
+        top: 50%;
+        margin-left: calc(var(--card-width) / -2);
+        margin-top: calc(var(--card-height) / -2);
+        transform-style: preserve-3d;
+        transition: transform 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        cursor: pointer;
+      }
+
+      .card-inner {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        transform-style: preserve-3d;
+        transition: transform 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      }
+
+      .memory-card:hover .card-inner {
+        transform: translateZ(20px);
+      }
+
+      .memory-card.flipped .card-inner {
+        transform: rotateY(180deg);
+      }
+
+      .card-front,
+      .card-back {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        backface-visibility: hidden;
+        border-radius: 16px;
+        overflow: hidden;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+        border: 1px solid rgba(99, 102, 241, 0.2);
+      }
+
+      .card-front {
+        background: linear-gradient(135deg, rgba(30, 35, 45, 0.95), rgba(20, 25, 35, 0.98));
+        backdrop-filter: blur(10px);
+        transform-style: preserve-3d;
+      }
+
+      .card-back {
+        background: linear-gradient(135deg, rgba(20, 25, 35, 0.98), rgba(30, 35, 45, 0.95));
+        backdrop-filter: blur(10px);
+        transform: rotateY(180deg);
+        border: 1px solid rgba(139, 92, 246, 0.3);
+      }
+
+      .card-content {
+        padding: 20px;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        position: relative;
+      }
+
+      .memory-date {
+        font-family: 'Orbitron', sans-serif;
+        font-size: 0.75rem;
+        color: var(--carousel-accent);
+        margin-bottom: 8px;
+        text-transform: uppercase;
+        letter-spacing: 1.5px;
+        font-weight: 600;
+      }
+
+      .memory-card h3 {
+        font-family: 'Orbitron', sans-serif;
+        font-size: 1.3rem;
+        margin-bottom: 10px;
+        color: #ffffff;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+      }
+
+      .memory-image {
+        width: 100%;
+        height: 260px;
+        margin-bottom: 12px;
+        position: relative;
+        overflow: hidden;
+        border-radius: 12px;
+        background: rgba(0, 0, 0, 0.6);
+      }
+
+      .memory-image video {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+      .glitch-effect {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(45deg, transparent 65%, rgba(99, 102, 241, 0.2) 70%, transparent 75%);
+        background-size: 200% 200%;
+        animation: glitch 3s linear infinite;
+        z-index: 1;
+        pointer-events: none;
+      }
+
+      @keyframes glitch {
+        0% { background-position: 0 0; }
+        25% { background-position: 100% 0; }
+        50% { background-position: 100% 100%; }
+        75% { background-position: 0 100%; }
+        100% { background-position: 0 0; }
+      }
+
+      .memory-preview {
+        font-size: 0.85rem;
+        color: rgba(184, 184, 255, 0.9);
+        margin-bottom: 12px;
+        flex-grow: 1;
+        line-height: 1.5;
+      }
+
+      .card-back .card-content p {
+        font-size: 0.9rem;
+        color: rgba(184, 184, 255, 0.9);
+        margin-bottom: 20px;
+        line-height: 1.6;
+        flex-grow: 1;
+      }
+
+      .memory-coordinates {
+        font-family: 'Orbitron', sans-serif;
+        font-size: 0.75rem;
+        color: var(--carousel-secondary);
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      .time-stamp {
+        color: var(--carousel-accent);
+      }
+
+      .card-glow {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        border-radius: 16px;
+        pointer-events: none;
+        background: radial-gradient(circle at 50% 50%, rgba(99, 102, 241, 0.15), transparent 70%);
+        opacity: 0;
+        transition: opacity 0.3s ease;
+      }
+
+      .memory-card:hover .card-glow {
+        opacity: 1;
+      }
+
+      .carousel-controls {
+        position: absolute;
+        bottom: -100px;
+        left: 50%;
+        transform: translateX(-50%);
+        display: none;
+        align-items: center;
+        gap: 24px;
+        z-index: 10;
+      }
+
+      .control-btn {
+        background: rgba(30, 35, 45, 0.9);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(99, 102, 241, 0.3);
+        color: #ffffff;
+        width: 55px;
+        height: 55px;
+        border-radius: 50%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+        font-size: 1.3rem;
+        font-weight: bold;
+      }
+
+      .control-btn:hover {
+        background: rgba(99, 102, 241, 0.3);
+        border-color: rgba(99, 102, 241, 0.6);
+        transform: scale(1.1);
+        box-shadow: 0 0 24px rgba(99, 102, 241, 0.5);
+      }
+
+      /* Quantum Core */
+      .quantum-core {
+        position: absolute;
+        width: 200px;
+        height: 200px;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 0;
+        pointer-events: none;
+        filter: drop-shadow(0 0 25px rgba(0, 212, 255, 0.4));
+      }
+
+      .core-connections {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        top: 0;
+        left: 0;
+        animation: electricPulse 3s ease-in-out infinite;
+      }
+
+      .core-outer-ring {
+        position: absolute;
+        width: 200px;
+        height: 200px;
+        border-radius: 50%;
+        border: 2px solid transparent;
+        background: linear-gradient(135deg, rgba(0, 212, 255, 0.3), rgba(0, 102, 255, 0.3)) border-box;
+        -webkit-mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
+        -webkit-mask-composite: xor;
+        mask-composite: exclude;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        animation: outerRingPulse 4s ease-in-out infinite;
+      }
+
+      .core-ring {
+        position: absolute;
+        border-radius: 50%;
+        border: 1.5px solid;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        box-shadow: 0 0 10px currentColor;
+      }
+
+      .core-ring-1 {
+        width: 150px;
+        height: 150px;
+        border-color: rgba(0, 212, 255, 0.5);
+        animation: quantumRotate1 10s linear infinite, quantumPulse 3s ease-in-out infinite;
+      }
+
+      .core-ring-2 {
+        width: 110px;
+        height: 110px;
+        border-color: rgba(0, 102, 255, 0.6);
+        border-style: dashed;
+        border-width: 2px;
+        animation: quantumRotate2 8s linear infinite reverse, quantumPulse 3s ease-in-out infinite 1s;
+      }
+
+      .core-ring-3 {
+        width: 75px;
+        height: 75px;
+        border-color: rgba(168, 85, 247, 0.7);
+        animation: quantumRotate3 6s linear infinite, quantumPulse 3s ease-in-out infinite 2s;
+      }
+
+      .electron {
+        position: absolute;
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: radial-gradient(circle, #00d4ff, #0066FF);
+        box-shadow: 0 0 10px #00d4ff, 0 0 20px rgba(0, 212, 255, 0.5);
+        top: 50%;
+        left: 50%;
+      }
+
+      .electron-1 {
+        animation: electronOrbit1 4s linear infinite;
+      }
+
+      .electron-2 {
+        animation: electronOrbit2 5s linear infinite reverse;
+      }
+
+      .electron-3 {
+        animation: electronOrbit3 6s linear infinite;
+      }
+
+      .neural-node {
+        position: absolute;
+        width: 4px;
+        height: 4px;
+        border-radius: 50%;
+        background: radial-gradient(circle, #00d4ff, transparent);
+        box-shadow: 0 0 8px rgba(0, 212, 255, 0.8);
+        opacity: 0.6;
+      }
+
+      .node-1 {
+        top: 15%;
+        left: 50%;
+        transform: translateX(-50%);
+        animation: nodePulse 3s ease-in-out infinite;
+      }
+
+      .node-2 {
+        top: 30%;
+        left: 30%;
+        animation: nodePulse 3.5s ease-in-out infinite 0.5s;
+      }
+
+      .node-3 {
+        top: 30%;
+        left: 70%;
+        animation: nodePulse 3.2s ease-in-out infinite 1s;
+      }
+
+      .node-4 {
+        top: 70%;
+        left: 30%;
+        animation: nodePulse 3.8s ease-in-out infinite 1.5s;
+      }
+
+      .node-5 {
+        top: 70%;
+        left: 70%;
+        animation: nodePulse 3.3s ease-in-out infinite 2s;
+      }
+
+      .node-6 {
+        top: 85%;
+        left: 50%;
+        transform: translateX(-50%);
+        animation: nodePulse 3.6s ease-in-out infinite 0.8s;
+      }
+
+      @keyframes nodePulse {
+        0%, 100% {
+          opacity: 0.4;
+          transform: scale(1);
+        }
+        50% {
+          opacity: 0.8;
+          transform: scale(1.5);
+        }
+      }
+
+      .core-center {
+        position: absolute;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: radial-gradient(circle, 
+          rgba(0, 212, 255, 0.9) 0%, 
+          rgba(0, 102, 255, 0.6) 50%,
+          rgba(168, 85, 247, 0.3) 100%);
+        box-shadow: 
+          0 0 20px rgba(0, 212, 255, 0.8),
+          0 0 40px rgba(0, 102, 255, 0.5),
+          inset 0 0 10px rgba(255, 255, 255, 0.5);
+        animation: coreEnergyPulse 2s ease-in-out infinite;
+        position: relative;
+      }
+
+      .quantum-particle {
+        position: absolute;
+        width: 3px;
+        height: 3px;
+        border-radius: 50%;
+        background: #ffffff;
+        box-shadow: 0 0 6px #00d4ff;
+        top: 50%;
+        left: 50%;
+      }
+
+      .quantum-particle:nth-child(1) {
+        animation: particleFloat1 3s ease-in-out infinite;
+      }
+
+      .quantum-particle:nth-child(2) {
+        animation: particleFloat2 3.5s ease-in-out infinite 0.5s;
+      }
+
+      .quantum-particle:nth-child(3) {
+        animation: particleFloat3 4s ease-in-out infinite 1s;
+      }
+
+      @keyframes electricPulse {
+        0%, 100% { opacity: 0.3; }
+        50% { opacity: 0.6; }
+      }
+
+      @keyframes outerRingPulse {
+        0%, 100% { 
+          transform: translate(-50%, -50%) scale(1);
+          opacity: 0.3;
+        }
+        50% { 
+          transform: translate(-50%, -50%) scale(1.05);
+          opacity: 0.5;
+        }
+      }
+
+      @keyframes quantumRotate1 {
+        0% { transform: translate(-50%, -50%) rotate(0deg); }
+        100% { transform: translate(-50%, -50%) rotate(360deg); }
+      }
+
+      @keyframes quantumRotate2 {
+        0% { transform: translate(-50%, -50%) rotate(0deg); }
+        100% { transform: translate(-50%, -50%) rotate(360deg); }
+      }
+
+      @keyframes quantumRotate3 {
+        0% { transform: translate(-50%, -50%) rotate(0deg); }
+        100% { transform: translate(-50%, -50%) rotate(360deg); }
+      }
+
+      @keyframes quantumPulse {
+        0%, 100% { 
+          opacity: 0.3;
+          transform: translate(-50%, -50%) scale(1);
+        }
+        50% { 
+          opacity: 0.5;
+          transform: translate(-50%, -50%) scale(1.08);
+        }
+      }
+
+      @keyframes electronOrbit1 {
+        0% { 
+          transform: translate(-50%, -50%) rotate(0deg) translateX(75px) rotate(0deg);
+        }
+        100% { 
+          transform: translate(-50%, -50%) rotate(360deg) translateX(75px) rotate(-360deg);
+        }
+      }
+
+      @keyframes electronOrbit2 {
+        0% { 
+          transform: translate(-50%, -50%) rotate(120deg) translateX(55px) rotate(-120deg);
+        }
+        100% { 
+          transform: translate(-50%, -50%) rotate(480deg) translateX(55px) rotate(-480deg);
+        }
+      }
+
+      @keyframes electronOrbit3 {
+        0% { 
+          transform: translate(-50%, -50%) rotate(240deg) translateX(38px) rotate(-240deg);
+        }
+        100% { 
+          transform: translate(-50%, -50%) rotate(600deg) translateX(38px) rotate(-600deg);
+        }
+      }
+
+      @keyframes coreEnergyPulse {
+        0%, 100% { 
+          transform: translate(-50%, -50%) scale(1);
+          opacity: 1;
+        }
+        50% { 
+          transform: translate(-50%, -50%) scale(1.1);
+          opacity: 0.8;
+        }
+      }
+
+      @keyframes particleFloat1 {
+        0%, 100% { 
+          transform: translate(-50%, -50%) translateY(-8px) translateX(-3px);
+          opacity: 1;
+        }
+        50% { 
+          transform: translate(-50%, -50%) translateY(-12px) translateX(3px);
+          opacity: 0.5;
+        }
+      }
+
+      @keyframes particleFloat2 {
+        0%, 100% { 
+          transform: translate(-50%, -50%) translateY(6px) translateX(-5px);
+          opacity: 0.8;
+        }
+        50% { 
+          transform: translate(-50%, -50%) translateY(10px) translateX(2px);
+          opacity: 0.4;
+        }
+      }
+
+      @keyframes particleFloat3 {
+        0%, 100% { 
+          transform: translate(-50%, -50%) translateX(-7px) translateY(2px);
+          opacity: 0.9;
+        }
+        50% { 
+          transform: translate(-50%, -50%) translateX(-3px) translateY(-4px);
+          opacity: 0.3;
+        }
+      }
+
+      @keyframes pulse {
+        0%, 100% { opacity: 0.8; }
+        50% { opacity: 1; }
+      }
+
+      /* Carousel Hint Indicator */
+      .carousel-hint {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        margin: 2rem auto 3rem;
+        padding: 1rem 2rem;
+        background: rgba(0, 102, 255, 0.1);
+        border: 1px solid rgba(0, 102, 255, 0.3);
+        border-radius: 50px;
+        max-width: fit-content;
+        animation: hintFloat 3s ease-in-out infinite;
+      }
+
+      .drag-icon {
+        color: #0066FF;
+        animation: dragPulse 2s ease-in-out infinite;
+      }
+
+      .hint-text {
+        color: rgba(255, 255, 255, 0.9);
+        font-size: 1rem;
+        font-weight: 500;
+        letter-spacing: 0.5px;
+      }
+
+      .hint-arrows {
+        display: flex;
+        gap: 4px;
+      }
+
+      .hint-arrows svg {
+        color: #00CCFF;
+        animation: arrowSlide 1.5s ease-in-out infinite;
+      }
+
+      .hint-arrows svg:last-child {
+        animation-delay: 0.15s;
+      }
+
+      @keyframes hintFloat {
+        0%, 100% {
+          transform: translateY(0);
+        }
+        50% {
+          transform: translateY(-8px);
+        }
+      }
+
+      @keyframes dragPulse {
+        0%, 100% {
+          transform: scale(1);
+          opacity: 0.8;
+        }
+        50% {
+          transform: scale(1.1);
+          opacity: 1;
+        }
+      }
+
+      @keyframes arrowSlide {
+        0%, 100% {
+          transform: translateX(0);
+          opacity: 0.6;
+        }
+        50% {
+          transform: translateX(4px);
+          opacity: 1;
+        }
+      }
+
+      @media (max-width: 1024px) {
+        :root {
+          --card-width: 260px;
+          --card-height: 360px;
+          --carousel-radius: 420px;
+        }
+        .carousel-container {
+          height: 480px;
+        }
+      }
+
+      @media (max-width: 768px) {
+        :root {
+          --card-width: 240px;
+          --card-height: 340px;
+          --carousel-radius: 360px;
+        }
+        .carousel-container {
+          height: 440px;
+        }
+        .memory-card h3 {
+          font-size: 1.2rem;
+        }
+        .memory-image {
+          height: 170px;
+        }
+        .control-btn {
+          width: 50px;
+          height: 50px;
+        }
+      }
+
+      @media (max-width: 576px) {
+        :root {
+          --card-width: 280px;
+          --card-height: 400px;
+          --carousel-radius: 350px;
+        }
+        .carousel-container {
+          height: 480px;
+        }
+        .control-btn {
+          width: 45px;
+          height: 45px;
+        }
+      }
+    </style>
+</head>
+<body>
+    <!-- Loading Screen -->
+    <div id="loading-screen">
+        <img src="images/logo.png.png" alt="AureaIA" class="loading-logo">
+    </div>
+    
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-logo">
+                <a href="#" onclick="location.reload(); return false;">
+                    <img src="images/logo.png.png" alt="AureaIA Logo" class="logo-img">
+                </a>
+                <p class="nav-typing" id="typing-text"><span class="nav-cursor" id="nav-cursor">_</span></p>
+            </div>
+            <ul class="nav-menu">
+                <li><a href="#inicio">Inicio</a></li>
+                <li><a href="#servicios">Servicios</a></li>
+                <li><a href="#historias">Historias</a></li>
+                <li><a href="#contacto">Contacto</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero" id="inicio">
+        <div id="particles-js"></div>
+        <div class="container">
+            <div class="hero-content">
+                <div class="hero-code-container">
+                    <div class="code-window" id="hero-code">
+                        <div class="code-header">
+                            <div class="code-dots">
+                                <span class="dot dot-red"></span>
+                                <span class="dot dot-yellow"></span>
+                                <span class="dot dot-green"></span>
+                            </div>
+                            <span class="code-title">aureia_intelligence.py</span>
+                        </div>
+                        <div class="code-content">
+                            <pre><code id="code-text"></code><span class="code-cursor" id="hero-cursor">|</span></pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Services Section -->
+    <section class="services-section" id="servicios">
+        <div class="container">
+            <h2 class="section-title">Nuestros Servicios</h2>
+            <p class="section-subtitle">Soluciones de inteligencia artificial diseñadas para impulsar la transformación digital de tu negocio</p>
+            <div class="services-grid">
+                <div class="service-card">
+                    <div class="service-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"/>
+                            <circle cx="12" cy="12" r="3"/>
+                        </svg>
+                    </div>
+                    <h3>Machine Learning</h3>
+                    <p>Desarrollamos modelos predictivos personalizados que aprenden de tus datos para automatizar decisiones y optimizar procesos empresariales con precisión.</p>
+                    <div class="service-tags">
+                        <span class="tag">TensorFlow</span>
+                        <span class="tag">Scikit-learn</span>
+                        <span class="tag">PyTorch</span>
+                    </div>
+                </div>
+                <div class="service-card">
+                    <div class="service-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 2a10 10 0 1 0 0 20 10 10 0 1 0 0-20z"/>
+                            <path d="M12 8v8m-4-4h8"/>
+                            <circle cx="12" cy="12" r="2" fill="currentColor"/>
+                        </svg>
+                    </div>
+                    <h3>Deep Learning</h3>
+                    <p>Implementamos arquitecturas de redes neuronales profundas para resolver problemas complejos de reconocimiento, clasificación y predicción avanzada.</p>
+                    <div class="service-tags">
+                        <span class="tag">CNN</span>
+                        <span class="tag">RNN</span>
+                        <span class="tag">Transformers</span>
+                    </div>
+                </div>
+                <div class="service-card">
+                    <div class="service-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                            <circle cx="12" cy="12" r="3"/>
+                        </svg>
+                    </div>
+                    <h3>Computer Vision</h3>
+                    <p>Sistemas de visión artificial que analizan imágenes y video en tiempo real: detección de objetos, reconocimiento facial, análisis de comportamiento.</p>
+                    <div class="service-tags">
+                        <span class="tag">YOLO</span>
+                        <span class="tag">OpenCV</span>
+                        <span class="tag">MediaPipe</span>
+                    </div>
+                </div>
+                <div class="service-card">
+                    <div class="service-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                            <path d="M8 10h8m-8 4h4"/>
+                        </svg>
+                    </div>
+                    <h3>Procesamiento de Lenguaje Natural</h3>
+                    <p>Chatbots inteligentes, análisis de sentimientos, extracción de información y generación de texto automatizado con comprensión contextual avanzada.</p>
+                    <div class="service-tags">
+                        <span class="tag">GPT</span>
+                        <span class="tag">BERT</span>
+                        <span class="tag">spaCy</span>
+                    </div>
+                </div>
+                <div class="service-card">
+                    <div class="service-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="18" y1="20" x2="18" y2="10"/>
+                            <line x1="12" y1="20" x2="12" y2="4"/>
+                            <line x1="6" y1="20" x2="6" y2="14"/>
+                        </svg>
+                    </div>
+                    <h3>Analítica de Datos</h3>
+                    <p>Transformamos grandes volúmenes de datos en insights accionables mediante visualizaciones interactivas y dashboards en tiempo real para toma de decisiones.</p>
+                    <div class="service-tags">
+                        <span class="tag">Pandas</span>
+                        <span class="tag">Power BI</span>
+                        <span class="tag">SQL</span>
+                    </div>
+                </div>
+                <div class="service-card">
+                    <div class="service-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+                        </svg>
+                    </div>
+                    <h3>Automatización Inteligente</h3>
+                    <p>Optimizamos flujos de trabajo mediante RPA e IA: automatización de procesos repetitivos, integración de sistemas y orquestación de tareas complejas.</p>
+                    <div class="service-tags">
+                        <span class="tag">RPA</span>
+                        <span class="tag">APIs</span>
+                        <span class="tag">Workflows</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Case Studies Section con Carrusel 3D -->
+    <section class="case-studies-section" id="historias">
+        <div class="container">
+            <h2 class="section-title">Casos de Éxito</h2>
+            <p class="section-subtitle">Soluciones de IA aplicadas en escenarios reales</p>
+            
+            <!-- Indicador de interacción -->
+            <div class="carousel-hint">
+                <svg class="drag-icon" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M9 3h6v6h-6z M3 9h6v6H3z M15 9h6v6h-6z M9 15h6v6H9z"/>
+                </svg>
+                <span class="hint-text">Arrastra para explorar</span>
+                <div class="hint-arrows">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M15 18l-6-6 6-6"/>
+                    </svg>
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M9 18l6-6-6-6"/>
+                    </svg>
+                </div>
+            </div>
+
+            <div class="carousel-container">
+                <!-- Quantum Core in Center -->
+                <div class="quantum-core">
+                    <div class="core-outer-ring"></div>
+                    <div class="core-ring core-ring-1"></div>
+                    <div class="core-ring core-ring-2"></div>
+                    <div class="core-ring core-ring-3"></div>
+                    <div class="electron electron-1"></div>
+                    <div class="electron electron-2"></div>
+                    <div class="electron electron-3"></div>
+                    
+                    <!-- Neural Network Nodes -->
+                    <div class="neural-node node-1"></div>
+                    <div class="neural-node node-2"></div>
+                    <div class="neural-node node-3"></div>
+                    <div class="neural-node node-4"></div>
+                    <div class="neural-node node-5"></div>
+                    <div class="neural-node node-6"></div>
+                    
+                    <div class="core-center">
+                        <div class="quantum-particle"></div>
+                        <div class="quantum-particle"></div>
+                        <div class="quantum-particle"></div>
+                    </div>
+                    <svg class="core-connections" viewBox="0 0 100 100">
+                        <!-- Neural network connections with transmutation effect -->
+                        <line x1="30" y1="30" x2="50" y2="50" stroke="url(#electricGradient)" stroke-width="1.5" opacity="0.6">
+                            <animate attributeName="opacity" values="0.3;0.8;0.3" dur="2s" repeatCount="indefinite"/>
+                            <animate attributeName="stroke-width" values="1.5;2.5;1.5" dur="2s" repeatCount="indefinite"/>
+                        </line>
+                        <line x1="70" y1="30" x2="50" y2="50" stroke="url(#electricGradient)" stroke-width="1.5" opacity="0.6">
+                            <animate attributeName="opacity" values="0.3;0.8;0.3" dur="2.5s" repeatCount="indefinite"/>
+                            <animate attributeName="stroke-width" values="1.5;2.5;1.5" dur="2.5s" repeatCount="indefinite"/>
+                        </line>
+                        <line x1="30" y1="70" x2="50" y2="50" stroke="url(#electricGradient)" stroke-width="1.5" opacity="0.6">
+                            <animate attributeName="opacity" values="0.3;0.8;0.3" dur="3s" repeatCount="indefinite"/>
+                            <animate attributeName="stroke-width" values="1.5;2.5;1.5" dur="3s" repeatCount="indefinite"/>
+                        </line>
+                        <line x1="70" y1="70" x2="50" y2="50" stroke="url(#electricGradient)" stroke-width="1.5" opacity="0.6">
+                            <animate attributeName="opacity" values="0.3;0.8;0.3" dur="2.2s" repeatCount="indefinite"/>
+                            <animate attributeName="stroke-width" values="1.5;2.5;1.5" dur="2.2s" repeatCount="indefinite"/>
+                        </line>
+                        <line x1="50" y1="15" x2="50" y2="50" stroke="url(#electricGradient)" stroke-width="1.5" opacity="0.6">
+                            <animate attributeName="opacity" values="0.3;0.8;0.3" dur="2.8s" repeatCount="indefinite"/>
+                            <animate attributeName="stroke-width" values="1.5;2.5;1.5" dur="2.8s" repeatCount="indefinite"/>
+                        </line>
+                        <line x1="50" y1="85" x2="50" y2="50" stroke="url(#electricGradient)" stroke-width="1.5" opacity="0.6">
+                            <animate attributeName="opacity" values="0.3;0.8;0.3" dur="2.3s" repeatCount="indefinite"/>
+                            <animate attributeName="stroke-width" values="1.5;2.5;1.5" dur="2.3s" repeatCount="indefinite"/>
+                        </line>
+                        
+                        <!-- Transmutation particles -->
+                        <circle r="1.5" fill="#00d4ff">
+                            <animateMotion dur="2s" repeatCount="indefinite">
+                                <mpath href="#path1"/>
+                            </animateMotion>
+                            <animate attributeName="opacity" values="0;1;0" dur="2s" repeatCount="indefinite"/>
+                        </circle>
+                        <circle r="1.5" fill="#0066FF">
+                            <animateMotion dur="2.5s" repeatCount="indefinite">
+                                <mpath href="#path2"/>
+                            </animateMotion>
+                            <animate attributeName="opacity" values="0;1;0" dur="2.5s" repeatCount="indefinite"/>
+                        </circle>
+                        <circle r="1.5" fill="#a855f7">
+                            <animateMotion dur="3s" repeatCount="indefinite">
+                                <mpath href="#path3"/>
+                            </animateMotion>
+                            <animate attributeName="opacity" values="0;1;0" dur="3s" repeatCount="indefinite"/>
+                        </circle>
+                        
+                        <path id="path1" d="M 30 30 L 50 50" stroke="none" fill="none"/>
+                        <path id="path2" d="M 70 30 L 50 50" stroke="none" fill="none"/>
+                        <path id="path3" d="M 50 15 L 50 50" stroke="none" fill="none"/>
+                        
+                        <circle cx="50" cy="50" r="45" fill="none" stroke="url(#electricGradient)" stroke-width="1" opacity="0.4">
+                            <animate attributeName="r" values="45;48;45" dur="4s" repeatCount="indefinite"/>
+                        </circle>
+                        <circle cx="50" cy="50" r="32" fill="none" stroke="url(#electricGradient)" stroke-width="1" opacity="0.5">
+                            <animate attributeName="r" values="32;35;32" dur="3s" repeatCount="indefinite"/>
+                        </circle>
+                        <defs>
+                            <linearGradient id="electricGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" style="stop-color:#00d4ff;stop-opacity:1">
+                                    <animate attributeName="stop-color" values="#00d4ff;#0066FF;#a855f7;#00d4ff" dur="4s" repeatCount="indefinite"/>
+                                </stop>
+                                <stop offset="50%" style="stop-color:#0066FF;stop-opacity:1">
+                                    <animate attributeName="stop-color" values="#0066FF;#a855f7;#00d4ff;#0066FF" dur="4s" repeatCount="indefinite"/>
+                                </stop>
+                                <stop offset="100%" style="stop-color:#a855f7;stop-opacity:1">
+                                    <animate attributeName="stop-color" values="#a855f7;#00d4ff;#0066FF;#a855f7" dur="4s" repeatCount="indefinite"/>
+                                </stop>
+                            </linearGradient>
+                        </defs>
+                    </svg>
+                </div>
+                
+                <div class="carousel" id="memory-carousel">
+                    <!-- Tarjeta 1: Analítica Robo -->
+                    <div class="memory-card" data-memory-id="1">
+                        <div class="card-inner">
+                            <div class="card-front">
+                                <div class="card-content">
+                                    <div class="memory-date">SEGURIDAD</div>
+                                    <h3>Analítica Robo</h3>
+                                    <div class="memory-image">
+                                        <video loop muted playsinline preload="metadata">
+                                            <source src="videos/Analítica de robo_urto.mp4.mp4" type="video/mp4">
+                                        </video>
+                                        <div class="glitch-effect"></div>
+                                    </div>
+                                    <p class="memory-preview">
+                                        Análisis avanzado de datos de vigilancia con IA para detectar patrones sospechosos...
+                                    </p>
+                                    <div class="card-glow"></div>
+                                </div>
+                            </div>
+                            <div class="card-back">
+                                <div class="card-content">
+                                    <h3>Analítica Robo</h3>
+                                    <p>
+                                        Sistema de inteligencia artificial que analiza comportamientos y movimientos en tiempo real para identificar actividades sospechosas. Utiliza algoritmos de detección de anomalías y reconocimiento de patrones para prevenir robos y mejorar la seguridad en espacios comerciales y públicos.
+                                    </p>
+                                    <div class="memory-coordinates">
+                                        <span>TECNOLOGÍA: OpenCV + YOLO</span>
+                                        <span class="time-stamp">APLICACIÓN: Retail & Seguridad</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tarjeta 2: ChatBot -->
+                    <div class="memory-card" data-memory-id="2">
+                        <div class="card-inner">
+                            <div class="card-front">
+                                <div class="card-content">
+                                    <div class="memory-date">POPULAR</div>
+                                    <h3>ChatBot IA</h3>
+                                    <div class="memory-image">
+                                        <video loop muted playsinline preload="metadata">
+                                            <source src="videos/ChatBot.mp4.mp4" type="video/mp4">
+                                        </video>
+                                        <div class="glitch-effect"></div>
+                                    </div>
+                                    <p class="memory-preview">
+                                        Asistente virtual inteligente capaz de mantener conversaciones naturales...
+                                    </p>
+                                    <div class="card-glow"></div>
+                                </div>
+                            </div>
+                            <div class="card-back">
+                                <div class="card-content">
+                                    <h3>ChatBot IA</h3>
+                                    <p>
+                                        Asistente conversacional avanzado que comprende lenguaje natural, responde consultas complejas y aprende de cada interacción. Integra procesamiento de lenguaje natural (NLP) y machine learning para ofrecer experiencias personalizadas y automatizar atención al cliente 24/7.
+                                    </p>
+                                    <div class="memory-coordinates">
+                                        <span>TECNOLOGÍA: NLP + ML</span>
+                                        <span class="time-stamp">APLICACIÓN: Atención al Cliente</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tarjeta 3: Detección de Celulares -->
+                    <div class="memory-card" data-memory-id="3">
+                        <div class="card-inner">
+                            <div class="card-front">
+                                <div class="card-content">
+                                    <div class="memory-date">CONTROL</div>
+                                    <h3>Detección de Celulares</h3>
+                                    <div class="memory-image">
+                                        <video loop muted playsinline preload="metadata">
+                                            <source src="videos/Detección de celulares.mp4.mp4" type="video/mp4">
+                                        </video>
+                                        <div class="glitch-effect"></div>
+                                    </div>
+                                    <p class="memory-preview">
+                                        Identifica la presencia y uso de teléfonos móviles en tiempo real...
+                                    </p>
+                                    <div class="card-glow"></div>
+                                </div>
+                            </div>
+                            <div class="card-back">
+                                <div class="card-content">
+                                    <h3>Detección de Celulares</h3>
+                                    <p>
+                                        Sistema de visión por computadora que detecta automáticamente el uso de teléfonos móviles en entornos controlados. Ideal para mejorar la productividad en espacios educativos y laborales, alertando sobre distracciones y uso no autorizado de dispositivos.
+                                    </p>
+                                    <div class="memory-coordinates">
+                                        <span>TECNOLOGÍA: Computer Vision</span>
+                                        <span class="time-stamp">APLICACIÓN: Educación & Empresas</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tarjeta 4: Detección de Manos -->
+                    <div class="memory-card" data-memory-id="4">
+                        <div class="card-inner">
+                            <div class="card-front">
+                                <div class="card-content">
+                                    <div class="memory-date">AVANZADO</div>
+                                    <h3>Detección de Manos</h3>
+                                    <div class="memory-image">
+                                        <video loop muted playsinline preload="metadata">
+                                            <source src="videos/Detección de manos.mp4.mp4" type="video/mp4">
+                                        </video>
+                                        <div class="glitch-effect"></div>
+                                    </div>
+                                    <p class="memory-preview">
+                                        Rastreo preciso de movimientos de manos y dedos en 3D...
+                                    </p>
+                                    <div class="card-glow"></div>
+                                </div>
+                            </div>
+                            <div class="card-back">
+                                <div class="card-content">
+                                    <h3>Detección de Manos</h3>
+                                    <p>
+                                        Tecnología de tracking avanzado que identifica y sigue los movimientos de manos en tiempo real con alta precisión. Permite crear interfaces gestuales, control sin contacto y aplicaciones interactivas innovadoras. Utiliza landmarks de 21 puntos para reconocimiento de gestos específicos.
+                                    </p>
+                                    <div class="memory-coordinates">
+                                        <span>TECNOLOGÍA: MediaPipe</span>
+                                        <span class="time-stamp">APLICACIÓN: Control por Gestos</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tarjeta 5: Detección de Mirada -->
+                    <div class="memory-card" data-memory-id="5">
+                        <div class="card-inner">
+                            <div class="card-front">
+                                <div class="card-content">
+                                    <div class="memory-date">INNOVACIÓN</div>
+                                    <h3>Detección de Mirada</h3>
+                                    <div class="memory-image">
+                                        <video loop muted playsinline preload="metadata">
+                                            <source src="videos/Detección de mirada.mp4.mp4" type="video/mp4">
+                                        </video>
+                                        <div class="glitch-effect"></div>
+                                    </div>
+                                    <p class="memory-preview">
+                                        Tecnología de eye tracking que analiza hacia dónde mira el usuario...
+                                    </p>
+                                    <div class="card-glow"></div>
+                                </div>
+                            </div>
+                            <div class="card-back">
+                                <div class="card-content">
+                                    <h3>Detección de Mirada</h3>
+                                    <p>
+                                        Sistema de eye tracking basado en IA que identifica la dirección de la mirada en tiempo real. Permite analizar patrones de atención visual, optimizar diseños UX/UI y crear experiencias interactivas basadas en la mirada del usuario. Aplicaciones en marketing, investigación y accesibilidad.
+                                    </p>
+                                    <div class="memory-coordinates">
+                                        <span>TECNOLOGÍA: Eye Tracking AI</span>
+                                        <span class="time-stamp">APLICACIÓN: Marketing & UX</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Controles del carrusel -->
+                <div class="carousel-controls">
+                    <button class="control-btn" id="prevBtn">‹</button>
+                    <button class="control-btn" id="nextBtn">›</button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Contact Section -->
+    <section class="contact-section" id="contacto">
+        <div class="container">
+            <div class="contact-wrapper">
+                <div class="contact-info">
+                    <h2 class="contact-title" id="morphTitle">
+                        <canvas id="particleCanvas"></canvas>
+                    </h2>
+                    <p class="contact-description">Transformemos tu idea en realidad. Contáctanos y descubre cómo la inteligencia artificial puede impulsar tu negocio.</p>
+                    
+                    <div class="social-links">
+                        <a href="https://www.instagram.com/L0ng07" target="_blank" class="social-link instagram" aria-label="Instagram">
+                            <svg viewBox="0 0 24 24" fill="currentColor" width="24" height="24">
+                                <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+                            </svg>
+                        </a>
+                        <a href="https://wa.me/541139481921" target="_blank" class="social-link whatsapp" aria-label="WhatsApp">
+                            <svg viewBox="0 0 24 24" fill="currentColor" width="24" height="24">
+                                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+                            </svg>
+                        </a>
+                        <a href="https://github.com/LongoNahuel" target="_blank" class="social-link github" aria-label="GitHub">
+                            <svg viewBox="0 0 24 24" fill="currentColor" width="24" height="24">
+                                <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                            </svg>
+                        </a>
+                        <a href="https://www.facebook.com/nahuel.longo" target="_blank" class="social-link facebook" aria-label="Facebook">
+                            <svg viewBox="0 0 24 24" fill="currentColor" width="24" height="24">
+                                <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                            </svg>
+                        </a>
+                    </div>
+                </div>
+
+                <form class="contact-form">
+                    <div class="form-group">
+                        <input type="text" placeholder="Nombre" required>
+                    </div>
+                    <div class="form-group">
+                        <input type="email" placeholder="Email" required>
+                    </div>
+                    <div class="form-group">
+                        <textarea placeholder="Mensaje" rows="5" required></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Enviar Mensaje</button>
+                </form>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2024 AureaIA. Todos los derechos reservados.</p>
+        </div>
+    </footer>
+
+    <!-- Cookie Banner -->
+    <div class="cookie-banner" id="cookieBanner">
+        <div class="cookie-content">
+            <p>Utilizamos cookies para mejorar tu experiencia. Al continuar navegando, aceptas nuestra política de cookies.</p>
+            <div class="cookie-buttons">
+                <button id="acceptCookies" class="btn btn-small btn-primary">Aceptar</button>
+                <button id="rejectCookies" class="btn btn-small btn-secondary">Rechazar</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/particles.js/2.0.0/particles.min.js"></script>
+    <script src="script.js?v=24.0"></script></script></script>
+    <script>
+      // Carrusel 3D JavaScript
+      document.addEventListener("DOMContentLoaded", function () {
+        const carousel = document.getElementById("memory-carousel");
+        const cards = document.querySelectorAll(".memory-card");
+        const prevBtn = document.getElementById("prevBtn");
+        const nextBtn = document.getElementById("nextBtn");
+
+        let theta = 0;
+        let radius = window.innerWidth <= 768 ? 320 : 360;
+        const totalCards = cards.length;
+        let currentIndex = 0;
+        let isDragging = false;
+        let startX = 0;
+
+        function init() {
+          arrangeCards();
+          updateVideoPlayback();
+          prevBtn.addEventListener("click", prevCard);
+          nextBtn.addEventListener("click", nextCard);
+          cards.forEach((card) => {
+            card.addEventListener("click", flipCard);
+          });
+
+          carousel.addEventListener("mousedown", dragStart);
+          carousel.addEventListener("touchstart", dragStart, { passive: true });
+          document.addEventListener("mousemove", drag);
+          document.addEventListener("touchmove", drag, { passive: false });
+          document.addEventListener("mouseup", dragEnd);
+          document.addEventListener("touchend", dragEnd);
+          document.addEventListener("keydown", handleKeyDown);
+
+          // Hide hint after first interaction
+          carousel.addEventListener("mousedown", hideHint, { once: true });
+          carousel.addEventListener("touchstart", hideHint, { once: true });
+        }
+
+        function hideHint() {
+          const hint = document.querySelector(".carousel-hint");
+          if (hint) {
+            hint.style.transition = "opacity 0.5s ease, transform 0.5s ease";
+            hint.style.opacity = "0";
+            hint.style.transform = "translateY(-20px)";
+            setTimeout(() => hint.remove(), 500);
+          }
+        }
+
+        function arrangeCards() {
+          const angle = 360 / totalCards;
+          cards.forEach((card, index) => {
+            const cardAngle = angle * index;
+            card.style.transform = `rotateY(${cardAngle}deg) translateZ(${radius}px)`;
+            card.dataset.index = index;
+          });
+        }
+
+        function rotateCarousel() {
+          carousel.style.transform = `rotateY(${theta}deg)`;
+          currentIndex = Math.round(Math.abs(theta / (360 / totalCards)) % totalCards);
+          if (currentIndex >= totalCards) currentIndex = 0;
+          updateVideoPlayback();
+        }
+
+        function updateVideoPlayback() {
+          cards.forEach((card, index) => {
+            const video = card.querySelector('video');
+            if (video) {
+              if (index === currentIndex) {
+                video.play().catch(() => {});
+              } else {
+                video.pause();
+              }
+            }
+          });
+        }
+
+        function nextCard() {
+          theta -= 360 / totalCards;
+          rotateCarousel();
+        }
+
+        function prevCard() {
+          theta += 360 / totalCards;
+          rotateCarousel();
+        }
+
+        function flipCard(e) {
+          const card = e.currentTarget;
+          const cardIndex = parseInt(card.dataset.index);
+          if (cardIndex === currentIndex) {
+            card.classList.toggle("flipped");
+          }
+        }
+
+        function dragStart(e) {
+          e.preventDefault();
+          isDragging = true;
+          startX = e.pageX || e.touches[0].pageX;
+        }
+
+        function drag(e) {
+          if (!isDragging) return;
+          e.preventDefault();
+          const currentX = e.pageX || (e.touches ? e.touches[0].pageX : startX);
+          const diffX = currentX - startX;
+          const sensitivity = 0.5;
+          const newTheta = theta + diffX * sensitivity;
+          carousel.style.transform = `rotateY(${newTheta}deg)`;
+        }
+
+        function dragEnd(e) {
+          if (!isDragging) return;
+          isDragging = false;
+          const currentX = e.pageX || (e.changedTouches ? e.changedTouches[0].pageX : startX);
+          const diffX = currentX - startX;
+          if (Math.abs(diffX) > 20) {
+            if (diffX > 0) {
+              prevCard();
+            } else {
+              nextCard();
+            }
+          } else {
+            const anglePerCard = 360 / totalCards;
+            const snapAngle = Math.round(theta / anglePerCard) * anglePerCard;
+            theta = snapAngle;
+            rotateCarousel();
+          }
+        }
+
+        function handleKeyDown(e) {
+          if (e.key === "ArrowLeft") {
+            nextCard();
+          } else if (e.key === "ArrowRight") {
+            prevCard();
+          } else if (e.key === "Enter" || e.key === " ") {
+            const currentCard = document.querySelector(`.memory-card[data-index="${currentIndex}"]`);
+            if (currentCard) {
+              currentCard.classList.toggle("flipped");
+            }
+          }
+        }
+
+        window.addEventListener("resize", () => {
+          radius = window.innerWidth <= 768 ? 400 : 600;
+          arrangeCards();
+          rotateCarousel();
+        });
+
+        init();
+      });
+    </script>
+</body>
+</html>

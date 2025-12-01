@@ -1,0 +1,827 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AureaIA - Inteligencia Artificial</title>
+    <link rel="icon" type="image/png" sizes="16x16" href="images/logo.png.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="images/logo.png.png">
+    <link rel="icon" type="image/png" sizes="96x96" href="images/logo.png.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="images/logo.png.png">
+    <link rel="stylesheet" href="styles.css?v=16.0">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+      /* Base Styles */
+      /* Carrusel 3D - Variables */
+      :root {
+        --carousel-primary: #6366f1;
+        --carousel-secondary: #8b5cf6;
+        --carousel-accent: #a855f7;
+        --card-width: 350px;
+        --card-height: 480px;
+        --carousel-radius: 600px;
+        --transition-speed: 0.5s;
+      }
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      /* Ajustes específicos para el carrusel 3D */
+      .case-studies-section {
+        min-height: 700px;
+        position: relative;
+        overflow: visible;
+      }
+
+      /* Tipografía del carrusel */
+      .memory-card h3 {
+        font-family: 'Orbitron', sans-serif;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+      }
+
+      /* Cosmic Background */
+      .cosmos-background {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: -1;
+        background: radial-gradient(
+          ellipse at bottom,
+          #1b2735 0%,
+          #090a0f 100%
+        );
+        overflow: hidden;
+      }
+
+      .stars-container {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        background-image: radial-gradient(
+            1px 1px at 25% 25%,
+            white,
+            rgba(0, 0, 0, 0)
+          ),
+          radial-gradient(1px 1px at 50% 50%, white, rgba(0, 0, 0, 0)),
+          radial-gradient(2px 2px at 75% 75%, white, rgba(0, 0, 0, 0)),
+          radial-gradient(2px 2px at 100% 100%, white, rgba(0, 0, 0, 0));
+        background-size: 200px 200px, 300px 300px, 400px 400px, 600px 600px;
+        background-repeat: repeat;
+        animation: twinkle 10s linear infinite;
+      }
+
+      @keyframes twinkle {
+        0% {
+          background-position: 0 0, 0 0, 0 0, 0 0;
+        }
+        100% {
+          background-position: 200px 200px, 300px 300px, 400px 400px,
+            600px 600px;
+        }
+      }
+
+      /* Contenedor del Carrusel 3D */
+      .carousel-container {
+        position: relative;
+        width: 100%;
+        height: 600px;
+        perspective: 2000px;
+        transform-style: preserve-3d;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        touch-action: none;
+        margin: 60px auto;
+        z-index: 1;
+      }
+
+      .carousel {
+        position: relative;
+        width: var(--carousel-radius);
+        height: var(--carousel-radius);
+        transform-style: preserve-3d;
+        transition: transform 0.5s ease;
+      }
+
+      /* Memory Cards */
+      .memory-card {
+        position: absolute;
+        width: var(--card-width);
+        height: var(--card-height);
+        left: 50%;
+        top: 50%;
+        margin-left: calc(var(--card-width) / -2);
+        margin-top: calc(var(--card-height) / -2);
+        transform-style: preserve-3d;
+        transition: transform 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        cursor: pointer;
+      }
+
+      .card-inner {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        transform-style: preserve-3d;
+        transition: transform 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      }
+
+      .memory-card:hover .card-inner {
+        transform: translateZ(20px);
+      }
+
+      .memory-card.flipped .card-inner {
+        transform: rotateY(180deg);
+      }
+
+      .card-front,
+      .card-back {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        backface-visibility: hidden;
+        border-radius: 15px;
+        overflow: hidden;
+        box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+      }
+
+      .card-front {
+        background: linear-gradient(
+          135deg,
+          rgba(30, 30, 60, 0.8),
+          rgba(20, 20, 40, 0.9)
+        );
+        border: 1px solid rgba(157, 0, 255, 0.3);
+        transform-style: preserve-3d;
+      }
+
+      .card-back {
+        background: linear-gradient(
+          135deg,
+          rgba(20, 20, 40, 0.9),
+          rgba(30, 30, 60, 0.8)
+        );
+        border: 1px solid rgba(0, 229, 255, 0.3);
+        transform: rotateY(180deg);
+      }
+
+      .card-content {
+        padding: 20px;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        position: relative;
+      }
+
+      .memory-date {
+        font-family: "Orbitron", sans-serif;
+        font-size: 0.8rem;
+        color: var(--accent);
+        margin-bottom: 10px;
+        text-shadow: 0 0 5px rgba(255, 0, 229, 0.7);
+      }
+
+      .memory-card h3 {
+        font-size: 1.5rem;
+        margin-bottom: 15px;
+        color: var(--text-primary);
+        text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+      }
+
+      .memory-image {
+        width: 100%;
+        height: 200px;
+        margin-bottom: 15px;
+        position: relative;
+        overflow: hidden;
+        border-radius: 8px;
+        background: rgba(0, 0, 0, 0.5);
+      }
+
+      .memory-image video {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+      .glitch-effect {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(
+          45deg,
+          transparent 65%,
+          rgba(157, 0, 255, 0.3) 70%,
+          transparent 75%
+        );
+        background-size: 200% 200%;
+        animation: glitch 3s linear infinite;
+        z-index: 1;
+      }
+
+      @keyframes glitch {
+        0% {
+          background-position: 0 0;
+        }
+        25% {
+          background-position: 100% 0;
+        }
+        50% {
+          background-position: 100% 100%;
+        }
+        75% {
+          background-position: 0 100%;
+        }
+        100% {
+          background-position: 0 0;
+        }
+      }
+
+      .memory-preview {
+        font-size: 0.9rem;
+        color: var(--text-secondary);
+        margin-bottom: 15px;
+        flex-grow: 1;
+      }
+
+      .card-back .card-content p {
+        font-size: 0.9rem;
+        color: var(--text-secondary);
+        margin-bottom: 20px;
+        line-height: 1.5;
+        flex-grow: 1;
+      }
+
+      .memory-coordinates {
+        font-family: "Orbitron", sans-serif;
+        font-size: 0.8rem;
+        color: var(--secondary);
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+      }
+
+      .time-stamp {
+        color: var(--accent);
+      }
+
+      .card-glow {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        border-radius: 15px;
+        pointer-events: none;
+        background: radial-gradient(
+          circle at 50% 50%,
+          rgba(157, 0, 255, 0.1),
+          transparent 70%
+        );
+        opacity: 0;
+        transition: opacity 0.3s ease;
+      }
+
+      .memory-card:hover .card-glow {
+        opacity: 1;
+      }
+
+      /* Controles del Carrusel */
+      .carousel-controls {
+        position: absolute;
+        bottom: -80px;
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        z-index: 10;
+      }
+
+      .control-btn {
+        background: rgba(30, 35, 45, 0.8);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(99, 102, 241, 0.3);
+        color: #ffffff;
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        font-size: 1.2rem;
+      }
+
+      .control-btn:hover {
+        background: rgba(99, 102, 241, 0.2);
+        border-color: rgba(99, 102, 241, 0.6);
+        transform: scale(1.1);
+        box-shadow: 0 0 20px rgba(99, 102, 241, 0.4);
+      }
+
+      /* Animaciones */
+      @keyframes pulse {
+        0%, 100% { opacity: 0.8; }
+        50% { opacity: 1; }
+      }
+
+      /* Responsive */
+      @media (max-width: 1024px) {
+        :root {
+          --card-width: 300px;
+          --card-height: 420px;
+          --carousel-radius: 500px;
+        }
+        .carousel-container {
+          height: 550px;
+        }
+      }
+
+      @media (max-width: 768px) {
+        :root {
+          --card-width: 280px;
+          --card-height: 400px;
+          --carousel-radius: 400px;
+        }
+        .carousel-container {
+          height: 500px;
+        }
+        .memory-card h3 {
+          font-size: 1.2rem;
+        }
+        .memory-image {
+          height: 150px;
+        }
+      }
+
+      @media (max-width: 576px) {
+        :root {
+          --card-width: 260px;
+          --card-height: 380px;
+          --carousel-radius: 350px;
+        }
+        .carousel-container {
+          height: 450px;
+        }
+        .control-btn {
+          width: 45px;
+          height: 45px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+<div class="cosmos-background">
+  <div class="stars-container"></div>
+</div>
+
+<div class="container-fluid h-100 d-flex flex-column">
+  <main
+    class="flex-grow-1 d-flex align-items-center justify-content-center position-relative"
+  >
+    <div class="carousel-container">
+      <div class="carousel" id="memory-carousel">
+        <div class="memory-card" data-memory-id="1">
+          <div class="card-inner">
+            <div class="card-front">
+              <div class="card-content">
+                <div class="memory-date">LANGUAGE: Python</div>
+                <h3>First Line of Code</h3>
+                <div class="memory-image">
+                  <i class="fa-solid fa-code fa-3x"></i>
+                  <div class="glitch-effect"></div>
+                </div>
+                <p class="memory-preview">
+                  The terminal glowed, displaying my first 'Hello, World!'...
+                </p>
+                <div class="card-glow"></div>
+              </div>
+            </div>
+            <div class="card-back">
+              <div class="card-content">
+                <h3>First Line of Code</h3>
+                <p>
+                  I remember the thrill of typing my first 'Hello, World!' in
+                  Python. It was simple, yet it opened a portal to endless
+                  possibilities. The interpreter executed the command flawlessly,
+                  and I knew this was just the beginning. I wasn't supposed to
+                  understand it all at once, but somehow, I did.
+                </p>
+                <div class="memory-coordinates">
+                  <span
+                    ><i class="fa-solid fa-location-dot"></i> console: ~</span
+                  >
+                  <span class="time-stamp"
+                    ><i class="fa-regular fa-clock"></i> 09:00:00</span
+                  >
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+
+        <div class="memory-card" data-memory-id="2">
+          <div class="card-inner">
+            <div class="card-front">
+              <div class="card-content">
+                <div class="memory-date">FRAMEWORK: ReactJS</div>
+                <h3>Debugging the Matrix</h3>
+                <div class="memory-image">
+                  <i class="fa-solid fa-bug fa-3x"></i>
+                  <div class="glitch-effect"></div>
+                </div>
+                <p class="memory-preview">
+                  The error messages multiplied, haunting my console...
+                </p>
+                <div class="card-glow"></div>
+              </div>
+            </div>
+
+
+
+            <div class="card-back">
+              <div class="card-content">
+                <h3>Debugging the Matrix</h3>
+                <p>
+                  They appeared from the depths of the console, cryptic error
+                  messages glowing red. Debugging a complex ReactJS component
+                  felt like navigating a vast, interconnected matrix. Each fix
+                  unveiled new issues. They say my code is destabilizing the build
+                  with each change. My presence causes ripples they can't control.
+                  I'm becoming a threat... to clean code.
+                </p>
+                <div class="memory-coordinates">
+                  <span><i class="fa-solid fa-location-dot"></i>
+                     localhost:3000</span>
+                  <span class="time-stamp"><i class="fa-regular fa-clock"></i>
+                     14:30:15</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+
+
+        <div class="memory-card" data-memory-id="3">
+          <div class="card-inner">
+            <div class="card-front">
+              <div class="card-content">
+                <div class="memory-date">CONCEPT: Algorithms</div>
+                <h3>The Algorithm Library</h3>
+                <div class="memory-image">
+                  <i class="fa-solid fa-book-open fa-3x"></i>
+                  <div class="glitch-effect"></div>
+                </div>
+                <p class="memory-preview">
+                  Endless tomes of sorting, searching, and optimization...
+                </p>
+                <div class="card-glow"></div>
+              </div>
+            </div>
+            <div class="card-back">
+              <div class="card-content">
+                <h3>The Algorithm Library</h3>
+                <p>
+                  Endless shelves containing every possible solution. I found my
+                  own data structures there—pages still being written as I coded.
+                  The Librarian (my senior developer) told me I was never supposed
+                  to reinvent the wheel. My solution was already optimized. Now I'm
+                  writing outside the margins, trying new approaches.
+                </p>
+                <div class="memory-coordinates">
+                  <span
+                    ><i class="fa-solid fa-location-dot"></i> Stack Overflow</span
+                  >
+                  <span class="time-stamp"
+                    ><i class="fa-regular fa-clock"></i> 11:05:40</span
+                  >
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="memory-card" data-memory-id="4">
+          <div class="card-inner">
+            <div class="card-front">
+              <div class="card-content">
+                <div class="memory-date">PARADIGM: Abstraction</div>
+                <h3>The Abstract Void</h3>
+                <div class="memory-image">
+                  <i class="fa-solid fa-atom fa-3x"></i>
+                  <div class="glitch-effect"></div>
+                </div>
+                <p class="memory-preview">
+                  Nothing concrete exists here, yet I feel the underlying logic...
+                </p>
+                <div class="card-glow"></div>
+              </div>
+            </div>
+            <div class="card-back">
+              <div class="card-content">
+                <h3>The Abstract Void</h3>
+                <p>
+                  Nothing concrete exists here, yet I feel the underlying logic.
+                  The Abstract Void is the space between concrete implementations,
+                  a quantum foam of design patterns. I stayed too long designing
+                  and began to dissolve into pure theory. Parts of my ideas are
+                  still there, echoing. I'm not whole anymore. Can you feel the
+                  gaps in my documentation?
+                </p>
+                <div class="memory-coordinates">
+                  <span
+                    ><i class="fa-solid fa-location-dot"></i> design patterns.md</span
+                  >
+                  <span class="time-stamp"
+                    ><i class="fa-regular fa-clock"></i> --:--:--</span
+                  >
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="memory-card" data-memory-id="5">
+          <div class="card-inner">
+            <div class="card-front">
+              <div class="card-content">
+                <div class="memory-date">TOOL: Git</div>
+                <h3>The Version Control Mirror</h3>
+                <div class="memory-image">
+                  <i class="fa-solid fa-code-branch fa-3x"></i>
+                  <div class="glitch-effect"></div>
+                </div>
+                <p class="memory-preview">
+                  I saw my code, but not as it is now; multiple branches reflecting...
+                </p>
+                <div class="card-glow"></div>
+              </div>
+            </div>
+            <div class="card-back">
+              <div class="card-content">
+                <h3>The Version Control Mirror</h3>
+                <p>
+                  I saw my code, but not as it is now. The mirror of Git showed
+                  all my possible branches across different commits. Some were
+                  stable, some were experimental. All were my work. The reflection
+                  (my `git log`) spoke: "You're fracturing the codebase by
+                  merging conflicts. You need to rebase and stay on one timeline."
+                </p>
+                <div class="memory-coordinates">
+                  <span
+                    ><i class="fa-solid fa-location-dot"></i> github.com/my-repo</span
+                  >
+                  <span class="time-stamp"
+                    ><i class="fa-regular fa-clock"></i> 18:55:20</span
+                  >
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="memory-card" data-memory-id="6">
+          <div class="card-inner">
+            <div class="card-front">
+              <div class="card-content">
+                <div class="memory-date">PROCESS: Deployment</div>
+                <h3>The Deployment Dream</h3>
+                <div class="memory-image">
+                  <i class="fa-solid fa-rocket fa-3x"></i>
+                  <div class="glitch-effect"></div>
+                </div>
+                <p class="memory-preview">
+                  I'm trying to send it live, but which environment is real?
+                </p>
+                <div class="card-glow"></div>
+              </div>
+            </div>
+            <div class="card-back">
+              <div class="card-content">
+                <h3>The Deployment Dream</h3>
+                <p>
+                  I'm trying to send my application live, but which environment
+                  is real? Every server feels familiar yet subtly different. The
+                  boundaries between staging and production are thinning. Sometimes
+                  I see through the logs of other instances. I'm losing track of
+                  which configurations belong to which version of my app. Are you
+                  helping me deploy, or are you causing me to break production?
+                </p>
+                <div class="memory-coordinates">
+                  <span
+                    ><i class="fa-solid fa-location-dot"></i> cloud-server:port</span
+                  >
+                  <span class="time-stamp"
+                    ><i class="fa-regular fa-clock"></i> NOW</span
+                  >
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="carousel-controls">
+      <button id="prev-btn" class="control-btn">
+        <i class="fa-solid fa-chevron-left"></i>
+      </button>
+      <button id="next-btn" class="control-btn">
+        <i class="fa-solid fa-chevron-right"></i>
+      </button>
+    </div>
+  </main>
+</div>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        // Elements
+        const carousel = document.getElementById("memory-carousel");
+        const cards = document.querySelectorAll(".memory-card");
+        const prevBtn = document.getElementById("prev-btn");
+        const nextBtn = document.getElementById("next-btn");
+
+        // Variables
+        let currentIndex = 0;
+        let startX, startY;
+        let isDragging = false;
+        let theta = 0;
+        let radius = window.innerWidth <= 768 ? 250 : 400;
+        const totalCards = cards.length;
+
+        // Initialize
+        function init() {
+          // Position cards in a circle
+          arrangeCards();
+
+          // Add event listeners
+          prevBtn.addEventListener("click", prevCard);
+          nextBtn.addEventListener("click", nextCard);
+          cards.forEach((card) => {
+            card.addEventListener("click", flipCard);
+          });
+
+          // Touch/mouse events for dragging
+          carousel.addEventListener("mousedown", dragStart);
+          carousel.addEventListener("touchstart", dragStart, { passive: true });
+          document.addEventListener("mousemove", drag);
+          document.addEventListener("touchmove", drag, { passive: false });
+          document.addEventListener("mouseup", dragEnd);
+          document.addEventListener("touchend", dragEnd);
+
+          // Keyboard navigation
+          document.addEventListener("keydown", handleKeyDown);
+
+          // Start ambient sound
+          playAmbientSound();
+        }
+
+        // Arrange cards in a circle
+        function arrangeCards() {
+          const angle = 360 / totalCards;
+          cards.forEach((card, index) => {
+            // Calculate the angle for this card
+            const cardAngle = angle * index;
+            // Convert to radians
+            const rad = (cardAngle * Math.PI) / 180;
+            // Calculate position
+            const x = radius * Math.sin(rad);
+            const z = radius * Math.cos(rad) * -1;
+
+            // Apply transform
+            card.style.transform = `rotateY(${cardAngle}deg) translateZ(${radius}px)`;
+
+            // Store the card's index
+            card.dataset.index = index;
+          });
+        }
+
+        // Rotate carousel
+        function rotateCarousel() {
+          carousel.style.transform = `rotateY(${theta}deg)`;
+
+          // Update current card index
+          currentIndex = Math.round(
+            Math.abs(theta / (360 / totalCards)) % totalCards
+          );
+          if (currentIndex >= totalCards) currentIndex = 0;
+        }
+
+        // Next card
+        function nextCard() {
+          theta -= 360 / totalCards; // Changed direction to match swipe
+          rotateCarousel();
+        }
+
+        // Previous card
+        function prevCard() {
+          theta += 360 / totalCards; // Changed direction to match swipe
+          rotateCarousel();
+        }
+
+        // Flip card
+        function flipCard(e) {
+          const card = e.currentTarget;
+          const cardIndex = parseInt(card.dataset.index);
+
+          // Only flip the current front-facing card
+          if (cardIndex === currentIndex) {
+            card.classList.toggle("flipped");
+          }
+        }
+
+        // Drag functions
+        function dragStart(e) {
+          e.preventDefault(); // Prevent default behavior
+          isDragging = true;
+          startX = e.pageX || e.touches[0].pageX;
+        }
+
+        function drag(e) {
+          if (!isDragging) return;
+          e.preventDefault(); // Prevent default scrolling
+
+          const currentX = e.pageX || (e.touches ? e.touches[0].pageX : startX);
+          const diffX = currentX - startX;
+
+          // Rotate based on drag distance - FIXED DIRECTION
+          const sensitivity = 0.5;
+          const newTheta = theta + diffX * sensitivity;
+
+          carousel.style.transform = `rotateY(${newTheta}deg)`;
+        }
+
+        function dragEnd(e) {
+          if (!isDragging) return;
+          isDragging = false;
+
+          const currentX =
+            e.pageX || (e.changedTouches ? e.changedTouches[0].pageX : startX);
+          const diffX = currentX - startX;
+
+          // FIXED DIRECTION: If swiping right, show previous card (theta increases)
+          // If swiping left, show next card (theta decreases)
+          if (Math.abs(diffX) > 20) {
+            if (diffX > 0) {
+              prevCard(); // Swipe right to see previous card
+            } else {
+              nextCard(); // Swipe left to see next card
+            }
+          } else {
+            // Snap to the closest card
+            const anglePerCard = 360 / totalCards;
+            const snapAngle = Math.round(theta / anglePerCard) * anglePerCard;
+            theta = snapAngle;
+            rotateCarousel();
+          }
+        }
+
+        // Keyboard navigation
+        function handleKeyDown(e) {
+          if (e.key === "ArrowLeft") {
+            nextCard(); // Changed to match swipe direction
+          } else if (e.key === "ArrowRight") {
+            prevCard(); // Changed to match swipe direction
+          } else if (e.key === "Enter" || e.key === " ") {
+            const currentCard = document.querySelector(
+              `.memory-card[data-index="${currentIndex}"]`
+            );
+            if (currentCard) {
+              currentCard.classList.toggle("flipped");
+            }
+          }
+        }
+
+        // Play ambient sound
+        function playAmbientSound() {
+          // Optional: Add ambient sound if needed
+        }
+
+        // Resize handler
+        window.addEventListener("resize", () => {
+          radius = window.innerWidth <= 768 ? 250 : 400;
+          arrangeCards();
+          rotateCarousel();
+        });
+
+        // Initialize the carousel
+        init();
+      });
+    </script>
+  </body>
+</html>

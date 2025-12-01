@@ -230,6 +230,12 @@ footer {
     display: flex;
     list-style: none;
     gap: 2.5rem;
+    margin: 0;
+    padding: 0;
+}
+
+.nav-menu li {
+    list-style: none;
 }
 
 .nav-menu a {

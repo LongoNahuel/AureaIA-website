@@ -766,7 +766,7 @@ function initParticleMorphing() {
     const ctx = canvas.getContext('2d');
     const text = 'Hablemos';
     let animationFrame;
-    let hasAnimated = false;
+    let isAnimating = false;
     
     // Set canvas size
     const updateCanvasSize = () => {
@@ -789,6 +789,16 @@ function initParticleMorphing() {
             this.targetY = targetY;
             this.size = Math.random() * 1.5 + 1;
             this.colorIndex = Math.floor(Math.random() * 3);
+        }
+        
+        reset(targetX, targetY, index) {
+            // Reset particle to new random position
+            const angle = (index / totalParticles) * Math.PI * 2;
+            const radius = Math.random() * canvas.width * 0.5;
+            this.x = canvas.width / 2 + Math.cos(angle) * radius;
+            this.y = canvas.height / 2 + Math.sin(angle) * radius;
+            this.targetX = targetX;
+            this.targetY = targetY;
         }
         
         update() {
@@ -850,10 +860,25 @@ function initParticleMorphing() {
     
     const coordinates = getTextCoordinates();
     totalParticles = coordinates.length;
-    const particles = coordinates.map((coord, i) => new Particle(coord.x, coord.y, i));
+    let particles = coordinates.map((coord, i) => new Particle(coord.x, coord.y, i));
     
     let frame = 0;
     const maxFrames = 100; // Stop animation after particles settle
+    
+    // Function to start animation
+    function startAnimation() {
+        if (isAnimating) return;
+        
+        isAnimating = true;
+        frame = 0;
+        
+        // Reset particles to random positions
+        particles.forEach((particle, i) => {
+            particle.reset(coordinates[i].x, coordinates[i].y, i);
+        });
+        
+        animate();
+    }
     
     // Optimized animation loop
     function animate() {
@@ -866,6 +891,7 @@ function initParticleMorphing() {
                 particle.draw();
             });
             ctx.shadowBlur = 0;
+            isAnimating = false;
             return;
         }
         
@@ -889,13 +915,11 @@ function initParticleMorphing() {
         animationFrame = requestAnimationFrame(animate);
     }
     
-    // Start animation when contact section is in view
+    // Start animation when contact section is in view (with looping)
     const observer = new IntersectionObserver((entries) => {
         entries.forEach(entry => {
-            if (entry.isIntersecting && !hasAnimated) {
-                hasAnimated = true;
-                animate();
-                observer.disconnect();
+            if (entry.isIntersecting) {
+                startAnimation();
             }
         });
     }, { threshold: 0.2 });

@@ -2383,6 +2383,54 @@ blockquote footer span {
         width: 100%;
     }
 
+    /* Hero Code Window */
+    .hero-content {
+        min-height: 400px;
+        padding: 0;
+    }
+
+    .hero-code-container {
+        max-width: 100%;
+        padding: 0;
+    }
+
+    .code-window {
+        border-radius: 8px;
+        margin: 0 0.5rem;
+    }
+
+    .code-header {
+        padding: 8px 12px;
+    }
+
+    .code-dots {
+        gap: 6px;
+    }
+
+    .dot {
+        width: 10px;
+        height: 10px;
+    }
+
+    .code-title {
+        font-size: 0.75rem;
+    }
+
+    .code-content {
+        padding: 16px;
+        min-height: 280px;
+    }
+
+    .code-content pre {
+        font-size: 0.75rem;
+        line-height: 1.5;
+        overflow-x: auto;
+    }
+
+    .code-cursor {
+        font-size: 0.75rem;
+    }
+
     /* Section titles with badges */
     .section-badge {
         font-size: 0.65rem;

@@ -378,41 +378,85 @@ document.querySelectorAll('.service-card, .case-study-card, .featured-card, .new
     card.style.transform = 'translateY(0)';
 });
 
-// Form Validation
-const contactForm = document.querySelector('.contact-form');
+// Form Validation and WhatsApp Integration
+const contactForm = document.getElementById('contactForm');
 
 if (contactForm) {
     contactForm.addEventListener('submit', (e) => {
         e.preventDefault();
         
         // Get form data
-        const formData = new FormData(contactForm);
-        const data = Object.fromEntries(formData);
+        const nombre = contactForm.querySelector('[name="nombre"]').value.trim();
+        const email = contactForm.querySelector('[name="email"]').value.trim();
+        const telefono = contactForm.querySelector('[name="telefono"]').value.trim();
+        const mensaje = contactForm.querySelector('[name="mensaje"]').value.trim();
         
-        // Simple validation
-        let isValid = true;
-        const requiredFields = ['nombre', 'apellido', 'email', 'pais', 'cargo', 'desafio'];
-        
-        requiredFields.forEach(field => {
-            const input = contactForm.querySelector(`[name="${field}"]`);
-            if (!input.value.trim()) {
-                isValid = false;
-                input.style.borderColor = '#ff4444';
-            } else {
-                input.style.borderColor = 'rgba(255, 255, 255, 0.1)';
-            }
-        });
-        
-        if (isValid) {
-            // Simulate form submission
-            console.log('Form data:', data);
-            alert('¡Gracias por tu mensaje! Nos pondremos en contacto contigo pronto.');
-            contactForm.reset();
-        } else {
-            alert('Por favor, completa todos los campos requeridos.');
+        // Validation
+        if (!nombre || !email || !mensaje) {
+            alert('Por favor, completa todos los campos obligatorios.');
+            return;
         }
+        
+        // Email validation
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            alert('Por favor, ingresa un email válido.');
+            return;
+        }
+        
+        // Create WhatsApp message
+        const whatsappNumber = '5491139481921'; // Argentina country code + number
+        let whatsappMessage = `*Nuevo contacto desde AureaIA*%0A%0A`;
+        whatsappMessage += `*Nombre:* ${encodeURIComponent(nombre)}%0A`;
+        whatsappMessage += `*Email:* ${encodeURIComponent(email)}%0A`;
+        if (telefono) {
+            whatsappMessage += `*Teléfono:* ${encodeURIComponent(telefono)}%0A`;
+        }
+        whatsappMessage += `%0A*Mensaje:*%0A${encodeURIComponent(mensaje)}`;
+        
+        // Open WhatsApp
+        const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${whatsappMessage}`;
+        window.open(whatsappUrl, '_blank');
+        
+        // Show confirmation modal
+        showConfirmationModal();
+        
+        // Reset form
+        contactForm.reset();
     });
 }
+
+// Confirmation Modal Functions
+function showConfirmationModal() {
+    const modal = document.getElementById('confirmationModal');
+    if (modal) {
+        modal.classList.add('show');
+        document.body.style.overflow = 'hidden';
+    }
+}
+
+function closeConfirmationModal() {
+    const modal = document.getElementById('confirmationModal');
+    if (modal) {
+        modal.classList.remove('show');
+        document.body.style.overflow = '';
+    }
+}
+
+// Close modal on outside click
+window.addEventListener('click', (e) => {
+    const modal = document.getElementById('confirmationModal');
+    if (e.target === modal) {
+        closeConfirmationModal();
+    }
+});
+
+// Close modal on ESC key
+window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        closeConfirmationModal();
+    }
+});
 
 // Dynamic Gradient Background Effect - Disabled for performance
 // const hero = document.querySelector('.hero');

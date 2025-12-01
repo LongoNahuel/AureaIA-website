@@ -1195,18 +1195,36 @@
                     </div>
                 </div>
 
-                <form class="contact-form">
+                <form class="contact-form" id="contactForm">
                     <div class="form-group">
-                        <input type="text" placeholder="Nombre" required>
+                        <input type="text" name="nombre" placeholder="Nombre completo" required>
                     </div>
                     <div class="form-group">
-                        <input type="email" placeholder="Email" required>
+                        <input type="email" name="email" placeholder="Email" required>
                     </div>
                     <div class="form-group">
-                        <textarea placeholder="Mensaje" rows="5" required></textarea>
+                        <input type="tel" name="telefono" placeholder="Teléfono (opcional)">
                     </div>
-                    <button type="submit" class="btn btn-primary">Enviar Mensaje</button>
+                    <div class="form-group">
+                        <textarea name="mensaje" placeholder="Mensaje" rows="5" required></textarea>
+                    </div>
+                    <button type="submit" class="submit-button">Enviar Mensaje</button>
                 </form>
+                
+                <!-- Confirmation Modal -->
+                <div class="confirmation-modal" id="confirmationModal">
+                    <div class="modal-content">
+                        <div class="modal-icon">
+                            <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                                <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                            </svg>
+                        </div>
+                        <h3>¡Mensaje Enviado!</h3>
+                        <p>Gracias por contactarnos. Hemos recibido tu mensaje y nuestro equipo se pondrá en contacto contigo a la brevedad.</p>
+                        <button class="modal-close-btn" onclick="closeConfirmationModal()">Cerrar</button>
+                    </div>
+                </div>
             </div>
         </div>
     </section>

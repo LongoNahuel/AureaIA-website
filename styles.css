@@ -1260,6 +1260,15 @@ blockquote footer span {
         width: 40px;
         height: 40px;
     }
+
+    /* Ocultar botones de navegación en móvil */
+    .carousel-controls {
+        display: none !important;
+    }
+
+    .control-btn {
+        display: none !important;
+    }
     
     .video-container {
         height: 280px;

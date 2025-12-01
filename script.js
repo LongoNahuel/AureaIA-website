@@ -14,65 +14,105 @@ window.addEventListener('load', () => {
     if (typeof particlesJS !== 'undefined') {
         initParticles();
     }
+
+    // Inicializar menú hamburguesa
+    initHamburgerMenu();
 });
+
+// Menú Hamburguesa
+function initHamburgerMenu() {
+    const hamburger = document.getElementById('hamburger-menu');
+    const navMenu = document.getElementById('nav-menu');
+    
+    if (hamburger && navMenu) {
+        hamburger.addEventListener('click', () => {
+            hamburger.classList.toggle('active');
+            navMenu.classList.toggle('active');
+        });
+
+        // Cerrar menú al hacer clic en un enlace
+        const navLinks = navMenu.querySelectorAll('a');
+        navLinks.forEach(link => {
+            link.addEventListener('click', () => {
+                hamburger.classList.remove('active');
+                navMenu.classList.remove('active');
+            });
+        });
+
+        // Cerrar menú al hacer clic fuera
+        document.addEventListener('click', (e) => {
+            if (!hamburger.contains(e.target) && !navMenu.contains(e.target)) {
+                hamburger.classList.remove('active');
+                navMenu.classList.remove('active');
+            }
+        });
+    }
+}
 
 // Particles.js Configuration
 let clickCount = 0;
 const maxClicks = 5;
+let clicksEnabled = true;
 
 function initParticles() {
     particlesJS('particles-js', {
     particles: {
         number: {
-            value: 50,
+            value: 100,
             density: {
                 enable: true,
-                value_area: 1600
+                value_area: 1200
             }
         },
         color: {
-            value: ['#0066FF', '#00CCFF', '#00E5FF']
+            value: ['#0066FF', '#00CCFF', '#00E5FF', '#0080FF', '#00B8FF']
         },
         shape: {
-            type: 'circle',
+            type: ['circle', 'triangle', 'edge'],
             stroke: {
                 width: 0,
                 color: '#0066FF'
             }
         },
         opacity: {
-            value: 0.9,
+            value: 0.7,
             random: true,
             anim: {
-                enable: false
+                enable: true,
+                speed: 1,
+                opacity_min: 0.3,
+                sync: false
             }
         },
         size: {
-            value: 2.5,
+            value: 3,
             random: true,
             anim: {
-                enable: false
+                enable: true,
+                speed: 2,
+                size_min: 1,
+                sync: false
             }
         },
         line_linked: {
             enable: true,
-            distance: 200,
+            distance: 150,
             color: '#00CCFF',
-            opacity: 0.6,
-            width: 1.2
+            opacity: 0.4,
+            width: 1
         },
         move: {
             enable: true,
-            speed: 1,
+            speed: 1.5,
             direction: 'none',
-            random: false,
+            random: true,
             straight: false,
             out_mode: 'out',
             bounce: false,
             attract: {
                 enable: true,
-                rotateX: 800,
-                rotateY: 800
+                rotateX: 600,
+                rotateY: 1200
             }
         }
     },
@@ -80,22 +120,28 @@ function initParticles() {
         detect_on: 'canvas',
         events: {
             onhover: {
-                enable: false
+                enable: true,
+                mode: 'grab'
             },
             onclick: {
-                enable: false
+                enable: true,
+                mode: 'push'
             },
             resize: true
         },
         modes: {
             grab: {
-                distance: 200,
+                distance: 140,
                 line_linked: {
-                    opacity: 0.6
+                    opacity: 0.7
                 }
             },
             push: {
-                particles_nb: 3
+                particles_nb: 1
+            },
+            repulse: {
+                distance: 100,
+                duration: 0.4
             }
         }
     },
@@ -103,20 +149,34 @@ function initParticles() {
     });
 }
 
-// Limitar clicks a 5
+// Limitar clicks a 5 máximo total - aplicado en body y canvas
 setTimeout(() => {
     const canvas = document.querySelector('#particles-js canvas');
-    if (canvas) {
-        canvas.addEventListener('click', function(e) {
+    const body = document.body;
+    
+    if (canvas && window.pJSDom && window.pJSDom[0]) {
+        const originalPush = window.pJSDom[0].pJS.fn.modes.pushParticles;
+        
+        const handleClick = function(e) {
             if (clickCount >= maxClicks) {
                 e.stopPropagation();
+                e.preventDefault();
+                // Bloquear la función push de particles.js
+                window.pJSDom[0].pJS.fn.modes.pushParticles = function() {};
             } else {
                 clickCount++;
-                if (clickCount === 1) {
-                    setTimeout(() => {
-                        clickCount = 0;
-                    }, 5000);
-                }
+                // Restaurar la función push si aún hay clicks disponibles
+                window.pJSDom[0].pJS.fn.modes.pushParticles = originalPush;
+            }
+        };
+        
+        canvas.addEventListener('click', handleClick, true);
+        body.addEventListener('click', function(e) {
+            // Solo contar si el click es dentro del canvas de particles
+            const rect = canvas.getBoundingClientRect();
+            if (e.clientX >= rect.left && e.clientX <= rect.right &&
+                e.clientY >= rect.top && e.clientY <= rect.bottom) {
+                handleClick(e);
             }
         }, true);
     }

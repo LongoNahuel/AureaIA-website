@@ -170,45 +170,40 @@ document.querySelectorAll('a[href^="#"]').forEach(anchor => {
   });
 });
 
-// Reveal on scroll — Motion One
-(function initReveal() {
-  const { animate, inView } = window.Motion || {};
+// Reveal on scroll — Motion One (ESM dynamic import)
+(async function initReveal() {
+  let animate, inView;
+
+  try {
+    const m = await import('https://cdn.jsdelivr.net/npm/motion@11/+esm');
+    animate = m.animate;
+    inView = m.inView;
+  } catch (_) {}
+
   if (!animate || !inView) {
-    // Fallback: legacy CSS class approach
+    // CSS class fallback
     const obs = new IntersectionObserver((entries) => {
-      entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); obs.unobserve(e.target); } });
-    }, { threshold: 0.08 });
+      entries.forEach(e => {
+        if (e.isIntersecting) { e.target.classList.add('visible'); obs.unobserve(e.target); }
+      });
+    }, { threshold: 0.08, rootMargin: '0px 0px -30px 0px' });
     document.querySelectorAll('.reveal').forEach(el => obs.observe(el));
     return;
   }
 
-  // Set all .reveal elements invisible initially (override CSS transition)
-  document.querySelectorAll('.reveal').forEach(el => {
-    el.style.opacity = '0';
-    el.style.transform = 'translateY(20px)';
-    el.style.transition = 'none';
-  });
-
-  // Section headers — fade up single
+  // Section headers
   document.querySelectorAll('.section-header.reveal').forEach(el => {
     inView(el, () => {
-      animate(el,
-        { opacity: [0, 1], y: [24, 0] },
-        { duration: 0.6, easing: [0.25, 1, 0.5, 1] }
-      );
+      animate(el, { opacity: [0, 1], y: [24, 0] }, { duration: 0.6, easing: [0.25, 1, 0.5, 1] });
     }, { amount: 0.2 });
   });
 
-  // Service cards — stagger within grid
+  // Service cards — stagger
   const serviceGrid = document.querySelector('.services-grid');
   if (serviceGrid) {
     inView(serviceGrid, () => {
-      const cards = serviceGrid.querySelectorAll('.service-card.reveal');
-      cards.forEach((card, i) => {
-        animate(card,
-          { opacity: [0, 1], y: [28, 0] },
-          { duration: 0.5, delay: i * 0.07, easing: [0.25, 1, 0.5, 1] }
-        );
+      serviceGrid.querySelectorAll('.service-card.reveal').forEach((card, i) => {
+        animate(card, { opacity: [0, 1], y: [28, 0] }, { duration: 0.5, delay: i * 0.07, easing: [0.25, 1, 0.5, 1] });
       });
     }, { amount: 0.1 });
   }
@@ -217,26 +212,18 @@ document.querySelectorAll('a[href^="#"]').forEach(anchor => {
   const portfolioGrid = document.querySelector('.portfolio-grid');
   if (portfolioGrid) {
     inView(portfolioGrid, () => {
-      const cards = portfolioGrid.querySelectorAll('.portfolio-card.reveal');
-      cards.forEach((card, i) => {
-        animate(card,
-          { opacity: [0, 1], y: [32, 0] },
-          { duration: 0.55, delay: i * 0.08, easing: [0.25, 1, 0.5, 1] }
-        );
+      portfolioGrid.querySelectorAll('.portfolio-card.reveal').forEach((card, i) => {
+        animate(card, { opacity: [0, 1], y: [32, 0] }, { duration: 0.55, delay: i * 0.08, easing: [0.25, 1, 0.5, 1] });
       });
     }, { amount: 0.08 });
   }
 
-  // Contact wrapper columns
+  // Contact columns
   document.querySelectorAll('.contact-wrapper .reveal').forEach((el, i) => {
     inView(el, () => {
-      animate(el,
-        { opacity: [0, 1], y: [24, 0] },
-        { duration: 0.6, delay: i * 0.12, easing: [0.25, 1, 0.5, 1] }
-      );
+      animate(el, { opacity: [0, 1], y: [24, 0] }, { duration: 0.6, delay: i * 0.12, easing: [0.25, 1, 0.5, 1] });
     }, { amount: 0.15 });
   });
-
 })();
 
 // Portfolio videos — play on hover (desktop)

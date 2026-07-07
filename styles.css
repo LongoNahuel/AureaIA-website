@@ -1040,10 +1040,18 @@ textarea { resize: vertical; }
   gap: 0.65rem;
 }
 
-/* === REVEAL ANIMATION (initial state — Motion One handles transitions) === */
+/* === REVEAL ANIMATION === */
 .reveal {
   opacity: 0;
+  transform: translateY(18px);
   will-change: opacity, transform;
+}
+
+/* Fallback cuando Motion One no carga */
+.reveal.visible {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 0.55s ease, transform 0.55s ease;
 }
 
 /* === RESPONSIVE — 1024px === */

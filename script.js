@@ -170,17 +170,74 @@ document.querySelectorAll('a[href^="#"]').forEach(anchor => {
   });
 });
 
-// Reveal on scroll
-const revealObserver = new IntersectionObserver((entries) => {
-  entries.forEach(entry => {
-    if (entry.isIntersecting) {
-      entry.target.classList.add('visible');
-      revealObserver.unobserve(entry.target);
-    }
-  });
-}, { threshold: 0.08, rootMargin: '0px 0px -30px 0px' });
+// Reveal on scroll — Motion One
+(function initReveal() {
+  const { animate, inView } = window.Motion || {};
+  if (!animate || !inView) {
+    // Fallback: legacy CSS class approach
+    const obs = new IntersectionObserver((entries) => {
+      entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); obs.unobserve(e.target); } });
+    }, { threshold: 0.08 });
+    document.querySelectorAll('.reveal').forEach(el => obs.observe(el));
+    return;
+  }
 
-document.querySelectorAll('.reveal').forEach(el => revealObserver.observe(el));
+  // Set all .reveal elements invisible initially (override CSS transition)
+  document.querySelectorAll('.reveal').forEach(el => {
+    el.style.opacity = '0';
+    el.style.transform = 'translateY(20px)';
+    el.style.transition = 'none';
+  });
+
+  // Section headers — fade up single
+  document.querySelectorAll('.section-header.reveal').forEach(el => {
+    inView(el, () => {
+      animate(el,
+        { opacity: [0, 1], y: [24, 0] },
+        { duration: 0.6, easing: [0.25, 1, 0.5, 1] }
+      );
+    }, { amount: 0.2 });
+  });
+
+  // Service cards — stagger within grid
+  const serviceGrid = document.querySelector('.services-grid');
+  if (serviceGrid) {
+    inView(serviceGrid, () => {
+      const cards = serviceGrid.querySelectorAll('.service-card.reveal');
+      cards.forEach((card, i) => {
+        animate(card,
+          { opacity: [0, 1], y: [28, 0] },
+          { duration: 0.5, delay: i * 0.07, easing: [0.25, 1, 0.5, 1] }
+        );
+      });
+    }, { amount: 0.1 });
+  }
+
+  // Portfolio cards — stagger
+  const portfolioGrid = document.querySelector('.portfolio-grid');
+  if (portfolioGrid) {
+    inView(portfolioGrid, () => {
+      const cards = portfolioGrid.querySelectorAll('.portfolio-card.reveal');
+      cards.forEach((card, i) => {
+        animate(card,
+          { opacity: [0, 1], y: [32, 0] },
+          { duration: 0.55, delay: i * 0.08, easing: [0.25, 1, 0.5, 1] }
+        );
+      });
+    }, { amount: 0.08 });
+  }
+
+  // Contact wrapper columns
+  document.querySelectorAll('.contact-wrapper .reveal').forEach((el, i) => {
+    inView(el, () => {
+      animate(el,
+        { opacity: [0, 1], y: [24, 0] },
+        { duration: 0.6, delay: i * 0.12, easing: [0.25, 1, 0.5, 1] }
+      );
+    }, { amount: 0.15 });
+  });
+
+})();
 
 // Portfolio videos — play on hover (desktop)
 const isTouchDevice = window.matchMedia('(hover: none)').matches;

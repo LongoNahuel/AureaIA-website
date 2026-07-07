@@ -1040,28 +1040,11 @@ textarea { resize: vertical; }
   gap: 0.65rem;
 }
 
-/* === REVEAL ANIMATION === */
+/* === REVEAL ANIMATION (initial state — Motion One handles transitions) === */
 .reveal {
   opacity: 0;
-  transform: translateY(16px);
-  transition: opacity 0.5s ease, transform 0.5s ease;
+  will-change: opacity, transform;
 }
-
-.reveal.visible {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-.service-card.reveal:nth-child(2) { transition-delay: 0.05s; }
-.service-card.reveal:nth-child(3) { transition-delay: 0.1s; }
-.service-card.reveal:nth-child(4) { transition-delay: 0.15s; }
-.service-card.reveal:nth-child(5) { transition-delay: 0.2s; }
-.service-card.reveal:nth-child(6) { transition-delay: 0.25s; }
-
-.portfolio-card.reveal:nth-child(2) { transition-delay: 0.07s; }
-.portfolio-card.reveal:nth-child(3) { transition-delay: 0.14s; }
-.portfolio-card.reveal:nth-child(4) { transition-delay: 0.07s; }
-.portfolio-card.reveal:nth-child(5) { transition-delay: 0.14s; }
 
 /* === RESPONSIVE — 1024px === */
 @media (max-width: 1024px) {

@@ -413,6 +413,56 @@ function initContactParticles() {
   window.addEventListener('resize', () => { stop(); build(); start(); }, { passive: true });
 }
 
+// Video lightbox
+(function () {
+  const modal = document.getElementById('videoModal');
+  const player = document.getElementById('videoModalPlayer');
+  const tagEl = document.getElementById('videoModalTag');
+  const titleEl = document.getElementById('videoModalTitle');
+  const descEl = document.getElementById('videoModalDesc');
+  const closeBtn = document.getElementById('videoModalClose');
+  const backdrop = document.getElementById('videoModalBackdrop');
+
+  if (!modal) return;
+
+  function openModal(card) {
+    const cardVideo = card.querySelector('video');
+    if (cardVideo) { cardVideo.pause(); cardVideo.currentTime = 0; }
+
+    const src = card.querySelector('video source')?.src || cardVideo?.currentSrc || '';
+    const tag = card.querySelector('.portfolio-tag')?.textContent || '';
+    const title = card.querySelector('h3')?.textContent || '';
+    const desc = card.querySelector('p')?.textContent || '';
+
+    player.src = src;
+    player.load();
+    tagEl.textContent = tag;
+    titleEl.textContent = title;
+    descEl.textContent = desc;
+
+    modal.classList.add('show');
+    document.body.style.overflow = 'hidden';
+    player.play().catch(() => {});
+  }
+
+  function closeModal() {
+    modal.classList.remove('show');
+    document.body.style.overflow = '';
+    player.pause();
+    player.src = '';
+  }
+
+  document.querySelectorAll('.portfolio-card').forEach(card => {
+    card.addEventListener('click', () => openModal(card));
+  });
+
+  closeBtn.addEventListener('click', closeModal);
+  backdrop.addEventListener('click', closeModal);
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeModal();
+  });
+})();
+
 // Cookie banner
 document.addEventListener('DOMContentLoaded', () => {
   initContactParticles();

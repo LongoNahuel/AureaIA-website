@@ -226,34 +226,30 @@ document.querySelectorAll('a[href^="#"]').forEach(anchor => {
   });
 })();
 
-// Portfolio videos — play on hover (desktop)
-const isTouchDevice = window.matchMedia('(hover: none)').matches;
-
+// ASCII videos — animate on interaction
 document.querySelectorAll('.portfolio-card').forEach(card => {
-  const video = card.querySelector('video');
-  if (!video) return;
+  const ascii = card.querySelector('.ascii-video');
+  if (!ascii) return;
 
-  if (!isTouchDevice) {
-    card.addEventListener('mouseenter', () => video.play().catch(() => {}));
-    card.addEventListener('mouseleave', () => {
-      video.pause();
-      video.currentTime = 0;
-    });
-  }
+  card.addEventListener('mouseenter', () => {
+    ascii.classList.add('active');
+    animateASCII(ascii);
+  });
+
+  card.addEventListener('mouseleave', () => {
+    ascii.classList.remove('active');
+  });
 });
 
-// Portfolio videos — play when in view (mobile / touch)
-if (isTouchDevice) {
-  const videoObserver = new IntersectionObserver((entries) => {
-    entries.forEach(entry => {
-      const video = entry.target.querySelector('video');
-      if (!video) return;
-      if (entry.isIntersecting) video.play().catch(() => {});
-      else { video.pause(); video.currentTime = 0; }
-    });
-  }, { threshold: 0.5 });
+// Animate ASCII content
+function animateASCII(element) {
+  const code = element.querySelector('code');
+  if (!code) return;
 
-  document.querySelectorAll('.portfolio-card').forEach(card => videoObserver.observe(card));
+  code.style.animation = 'none';
+  setTimeout(() => {
+    code.style.animation = '';
+  }, 10);
 }
 
 // Contact form → WhatsApp
@@ -457,7 +453,7 @@ function initContactParticles() {
   window.addEventListener('resize', () => { stop(); build(); start(); }, { passive: true });
 }
 
-// Video lightbox
+// ASCII lightbox
 (function () {
   const modal = document.getElementById('videoModal');
   const player = document.getElementById('videoModalPlayer');
@@ -470,30 +466,36 @@ function initContactParticles() {
   if (!modal) return;
 
   function openModal(card) {
-    const cardVideo = card.querySelector('video');
-    if (cardVideo) { cardVideo.pause(); cardVideo.currentTime = 0; }
-
-    const src = card.querySelector('video source')?.src || cardVideo?.currentSrc || '';
+    const ascii = card.querySelector('.ascii-video');
     const tag = card.querySelector('.portfolio-tag')?.textContent || '';
     const title = card.querySelector('h3')?.textContent || '';
     const desc = card.querySelector('p')?.textContent || '';
 
-    player.src = src;
-    player.load();
     tagEl.textContent = tag;
     titleEl.textContent = title;
     descEl.textContent = desc;
 
+    // Display ASCII in expanded view
+    player.style.display = 'none';
+    if (ascii) {
+      const asciiClone = ascii.cloneNode(true);
+      asciiClone.style.fontSize = '1rem';
+      asciiClone.style.padding = '2rem';
+      asciiClone.style.width = '100%';
+      asciiClone.style.height = 'auto';
+      player.parentElement.innerHTML = '';
+      player.parentElement.appendChild(asciiClone);
+    }
+
     modal.classList.add('show');
     document.body.style.overflow = 'hidden';
-    player.play().catch(() => {});
   }
 
   function closeModal() {
     modal.classList.remove('show');
     document.body.style.overflow = '';
-    player.pause();
-    player.src = '';
+    player.style.display = '';
+    player.parentElement.innerHTML = '<video id="videoModalPlayer" playsinline controls></video>';
   }
 
   document.querySelectorAll('.portfolio-card').forEach(card => {

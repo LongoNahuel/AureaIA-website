@@ -226,35 +226,68 @@ document.querySelectorAll('a[href^="#"]').forEach(anchor => {
   });
 })();
 
-// Portfolio videos — play on hover (desktop)
+// Portfolio — animaciones ASCII (reemplazan a los MP4 originales)
 const isTouchDevice = window.matchMedia('(hover: none)').matches;
 
-document.querySelectorAll('.portfolio-card').forEach(card => {
-  const video = card.querySelector('video');
-  if (!video) return;
+// canvas -> Promise<AsciiClip | null>. El JSON queda cacheado por id dentro del
+// reproductor, así que la copia del lightbox no vuelve a descargar nada.
+const asciiMounts = new Map();
 
-  if (!isTouchDevice) {
-    card.addEventListener('mouseenter', () => video.play().catch(() => {}));
-    card.addEventListener('mouseleave', () => {
-      video.pause();
-      video.currentTime = 0;
-    });
+function mountAscii(canvas, options) {
+  if (!asciiMounts.has(canvas)) {
+    const wrap = canvas.closest('.portfolio-video, .video-modal-player');
+    wrap?.classList.add('ascii-loading');
+
+    asciiMounts.set(
+      canvas,
+      AsciiPlayer.attach(canvas, canvas.dataset.ascii, options)
+        .then(clip => {
+          wrap?.classList.remove('ascii-loading');
+          wrap?.classList.add('ascii-ready');
+          return clip;
+        })
+        .catch(err => {
+          console.warn('[ascii] no pude cargar', canvas.dataset.ascii, err);
+          wrap?.classList.remove('ascii-loading');
+          wrap?.classList.add('ascii-error');
+          return null;
+        })
+    );
+  }
+  return asciiMounts.get(canvas);
+}
+
+function withAscii(canvas, fn) {
+  if (!canvas) return;
+  mountAscii(canvas, { fit: 'cover' }).then(clip => clip && fn(clip));
+}
+
+document.querySelectorAll('.portfolio-card .ascii-canvas').forEach(canvas => {
+  const card = canvas.closest('.portfolio-card');
+
+  // Descargamos el clip recién cuando la tarjeta se acerca al viewport y
+  // dejamos pintado el primer frame como póster.
+  const preload = new IntersectionObserver((entries, obs) => {
+    if (entries.some(e => e.isIntersecting)) {
+      mountAscii(canvas, { fit: 'cover' });
+      obs.disconnect();
+    }
+  }, { rootMargin: '300px' });
+  preload.observe(card);
+
+  if (isTouchDevice) {
+    // En táctil no hay hover: animamos la tarjeta que esté a la vista.
+    const playback = new IntersectionObserver(entries => {
+      entries.forEach(entry => {
+        withAscii(canvas, clip => (entry.isIntersecting ? clip.play() : clip.rewind()));
+      });
+    }, { threshold: 0.5 });
+    playback.observe(card);
+  } else {
+    card.addEventListener('mouseenter', () => withAscii(canvas, clip => clip.play()));
+    card.addEventListener('mouseleave', () => withAscii(canvas, clip => clip.rewind()));
   }
 });
-
-// Portfolio videos — play when in view (mobile / touch)
-if (isTouchDevice) {
-  const videoObserver = new IntersectionObserver((entries) => {
-    entries.forEach(entry => {
-      const video = entry.target.querySelector('video');
-      if (!video) return;
-      if (entry.isIntersecting) video.play().catch(() => {});
-      else { video.pause(); video.currentTime = 0; }
-    });
-  }, { threshold: 0.5 });
-
-  document.querySelectorAll('.portfolio-card').forEach(card => videoObserver.observe(card));
-}
 
 // Contact form → WhatsApp
 const contactForm = document.getElementById('contactForm');
@@ -457,53 +490,106 @@ function initContactParticles() {
   window.addEventListener('resize', () => { stop(); build(); start(); }, { passive: true });
 }
 
-// Video lightbox
+// Lightbox — el mismo clip en ASCII, a mayor tamaño, con acceso al MP4 original
 (function () {
   const modal = document.getElementById('videoModal');
+  const canvas = document.getElementById('videoModalAscii');
   const player = document.getElementById('videoModalPlayer');
+  const toggle = document.getElementById('asciiSourceToggle');
+  const toggleLabel = document.getElementById('asciiSourceLabel');
   const tagEl = document.getElementById('videoModalTag');
   const titleEl = document.getElementById('videoModalTitle');
   const descEl = document.getElementById('videoModalDesc');
   const closeBtn = document.getElementById('videoModalClose');
   const backdrop = document.getElementById('videoModalBackdrop');
 
-  if (!modal) return;
+  if (!modal || !canvas) return;
+
+  let clip = null;      // AsciiClip del lightbox (uno por apertura)
+  let videoSrc = '';
+  let showingAscii = true;
+
+  function mountClip(id) {
+    if (clip) { clip.destroy(); clip = null; }
+    asciiMounts.delete(canvas);
+    canvas.dataset.ascii = id;
+    // 'contain' para ver el encuadre completo, no el recorte de la tarjeta.
+    mountAscii(canvas, { fit: 'contain' }).then(instance => {
+      if (!instance || canvas.dataset.ascii !== id) return;
+      clip = instance;
+      if (showingAscii && modal.classList.contains('show')) clip.play();
+    });
+  }
+
+  function showAscii() {
+    showingAscii = true;
+    canvas.hidden = false;
+    player.hidden = true;
+    player.pause();
+    toggle.setAttribute('aria-pressed', 'true');
+    toggleLabel.textContent = 'ASCII';
+    toggle.title = 'Ver el video original';
+    if (clip) clip.play();
+  }
+
+  function showVideo() {
+    showingAscii = false;
+    if (clip) clip.pause();
+    canvas.hidden = true;
+    player.hidden = false;
+    if (player.src !== videoSrc) {
+      player.src = videoSrc;
+      player.load();
+    }
+    toggle.setAttribute('aria-pressed', 'false');
+    toggleLabel.textContent = 'Video original';
+    toggle.title = 'Volver al ASCII';
+    player.play().catch(() => {});
+  }
 
   function openModal(card) {
-    const cardVideo = card.querySelector('video');
-    if (cardVideo) { cardVideo.pause(); cardVideo.currentTime = 0; }
+    const cardCanvas = card.querySelector('.ascii-canvas');
+    if (!cardCanvas) return;
 
-    const src = card.querySelector('video source')?.src || cardVideo?.currentSrc || '';
-    const tag = card.querySelector('.portfolio-tag')?.textContent || '';
-    const title = card.querySelector('h3')?.textContent || '';
-    const desc = card.querySelector('p')?.textContent || '';
+    withAscii(cardCanvas, c => c.rewind());
 
-    player.src = src;
-    player.load();
-    tagEl.textContent = tag;
-    titleEl.textContent = title;
-    descEl.textContent = desc;
+    videoSrc = cardCanvas.dataset.video || '';
+    toggle.hidden = !videoSrc;
+    tagEl.textContent = card.querySelector('.portfolio-tag')?.textContent || '';
+    titleEl.textContent = card.querySelector('h3')?.textContent || '';
+    descEl.textContent = card.querySelector('p')?.textContent || '';
+    canvas.setAttribute('aria-label', titleEl.textContent + ' — animación ASCII');
 
     modal.classList.add('show');
     document.body.style.overflow = 'hidden';
-    player.play().catch(() => {});
+
+    mountClip(cardCanvas.dataset.ascii);
+    showAscii();
   }
 
   function closeModal() {
     modal.classList.remove('show');
     document.body.style.overflow = '';
     player.pause();
-    player.src = '';
+    player.removeAttribute('src');
+    player.load();
+    if (clip) { clip.destroy(); clip = null; }
+    asciiMounts.delete(canvas);
   }
 
   document.querySelectorAll('.portfolio-card').forEach(card => {
     card.addEventListener('click', () => openModal(card));
   });
 
+  toggle.addEventListener('click', (e) => {
+    e.stopPropagation();
+    showingAscii ? showVideo() : showAscii();
+  });
+
   closeBtn.addEventListener('click', closeModal);
   backdrop.addEventListener('click', closeModal);
   window.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') closeModal();
+    if (e.key === 'Escape' && modal.classList.contains('show')) closeModal();
   });
 })();
 

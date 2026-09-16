@@ -571,16 +571,44 @@ textarea { resize: vertical; }
   aspect-ratio: 16 / 8;
 }
 
-.portfolio-video video {
+.portfolio-video .ascii-canvas {
   width: 100%;
   height: 100%;
-  object-fit: cover;
   display: block;
-  transition: transform 0.5s ease;
+  background: #000;
+  /* El lienzo ya se dibuja a la resolución del dispositivo: escalarlo por CSS
+     sólo emborronaría los caracteres, así que el hover sube el brillo. */
+  transition: filter 0.35s ease, opacity 0.35s ease;
 }
 
-.portfolio-card:hover .portfolio-video video {
-  transform: scale(1.04);
+.portfolio-card:hover .portfolio-video .ascii-canvas {
+  filter: brightness(1.15);
+}
+
+/* Mientras baja el JSON del clip, latido tenue en lugar de un hueco negro. */
+.portfolio-video.ascii-loading .ascii-canvas {
+  opacity: 0.35;
+  animation: ascii-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes ascii-pulse {
+  0%, 100% { opacity: 0.2; }
+  50% { opacity: 0.45; }
+}
+
+.portfolio-video.ascii-error::before,
+.video-modal-player.ascii-error::before {
+  content: 'ASCII no disponible';
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.72rem;
+  letter-spacing: 1px;
+  color: var(--text-muted);
+  z-index: 1;
 }
 
 .portfolio-info {
@@ -973,6 +1001,7 @@ textarea { resize: vertical; }
 .video-modal-close:hover { color: #fff; }
 
 .video-modal-player {
+  position: relative;
   width: 100%;
   background: #000;
   border-radius: var(--radius);
@@ -981,11 +1010,55 @@ textarea { resize: vertical; }
   border: 1px solid var(--border);
 }
 
-.video-modal-player video {
+.video-modal-player video,
+.video-modal-player .ascii-canvas {
   width: 100%;
   height: 100%;
   object-fit: contain;
   display: block;
+  background: #000;
+}
+
+.video-modal-player [hidden] { display: none; }
+
+/* Conmutador ASCII / MP4 original */
+.ascii-source-toggle {
+  position: absolute;
+  top: -44px;
+  left: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.3rem 0.7rem;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: rgba(255, 255, 255, 0.72);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.66rem;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: color 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+}
+
+.ascii-source-toggle:hover {
+  color: #fff;
+  border-color: var(--border-hover);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.ascii-source-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  transition: background 0.2s ease, box-shadow 0.2s ease;
+}
+
+.ascii-source-toggle[aria-pressed="true"] .ascii-source-dot {
+  background: var(--primary-light);
+  box-shadow: 0 0 6px var(--primary-light);
 }
 
 .video-modal-info {

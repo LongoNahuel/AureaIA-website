@@ -1169,6 +1169,12 @@ textarea { resize: vertical; }
 
 .ascii-metrics dd .delta { color: var(--primary-light); }
 
+.ascii-toggles {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
 .ascii-plain-toggle {
   display: inline-flex;
   align-items: center;

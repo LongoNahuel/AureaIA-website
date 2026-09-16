@@ -54,24 +54,47 @@ GAMMA = 1.45      # >1 hunde los grises bajos para que el fondo quede vacío
 SHARPEN = 1.0     # realce local: devuelve nitidez al texto tras el submuestreo
 SATURATION = 1.6
 
+# Fracción mínima de celdas con contenido en el video que el ASCII debe seguir
+# pintando. Es la restricción que impide que la calibración "gane" apagando la
+# pantalla (ver calibrate).
+MIN_COVERAGE = 0.90
+
+# Tolerancia para que una celda herede el color de su vecina izquierda. El
+# reproductor dibuja de una sola vez las tiradas contiguas del mismo color, así
+# que alargarlas baja mucho el coste de pintado (medido: fillText se llevaba el
+# 87% del tiempo de frame, con ~23.000 llamadas). Además comprime mejor.
+COLOR_RUN_TOL = 34.0
+
 # Histéresis temporal (ver stabilize).
-CHAR_TOL = 2          # niveles de 64 que debe saltar una celda para actualizarse
+CHAR_TOL = 3          # niveles de 64 que debe saltar una celda para actualizarse
 COLOR_TOL = 46.0      # distancia RGB para aceptar un cambio de color
 
 # Dos niveles de detalle. Una tarjeta mide ~470 px de ancho: a 260 columnas
 # cada carácter caería en 1,8 px, así que ahí sólo se pagaría peso sin ganar
 # nitidez. El nivel "hi" se descarga únicamente al abrir el lightbox.
 TIERS = [
-    {"suffix": "", "cols": 132},        # tarjetas del portfolio
-    {"suffix": ".hi", "cols": 260},     # lightbox y vista comparativa
+    # tarjetas: a tamaño chico prima la legibilidad, así que se ecualiza fuerte
+    {"suffix": "", "cols": 132, "eq_mix": 0.70, "gamma": 1.45},
+    # detalle: prima el parecido con el original; sin curva fija aquí, para que
+    # cada clip use la suya calibrada (ver CLIPS y --calibrate)
+    {"suffix": ".hi", "cols": 520, "fps_scale": 0.75},
 ]
 
+# eq_mix/gamma salen de `--calibrate`: para cada clip es la curva que mejor
+# reproduce el brillo real de sus celdas sin apagar contenido. Se usan en el
+# nivel de detalle; las tarjetas llevan una curva fija más ecualizada porque a
+# tamaño chico pesa más la legibilidad que el parecido tonal.
 CLIPS = [
-    {"id": "robo", "file": "Analítica de robo_urto.mp4.mp4", "fps": 12},
-    {"id": "chatbot", "file": "ChatBot.mp4.mp4", "fps": 10},
-    {"id": "celulares", "file": "Detección de celulares.mp4.mp4", "fps": 12},
-    {"id": "manos", "file": "Detección de manos.mp4.mp4", "fps": 15},
-    {"id": "mirada", "file": "Detección de mirada.mp4.mp4", "fps": 12},
+    {"id": "robo", "file": "Analítica de robo_urto.mp4.mp4", "fps": 12,
+     "eq_mix": 0.15, "gamma": 1.45},
+    {"id": "chatbot", "file": "ChatBot.mp4.mp4", "fps": 10,
+     "eq_mix": 0.0, "gamma": 1.70},
+    {"id": "celulares", "file": "Detección de celulares.mp4.mp4", "fps": 12,
+     "eq_mix": 0.0, "gamma": 1.45},
+    {"id": "manos", "file": "Detección de manos.mp4.mp4", "fps": 15,
+     "eq_mix": 0.0, "gamma": 1.70},
+    {"id": "mirada", "file": "Detección de mirada.mp4.mp4", "fps": 12,
+     "eq_mix": 0.0, "gamma": 1.70},
 ]
 
 
@@ -261,6 +284,22 @@ def palette_lut(centers, bits=5):
     return d.argmin(1).astype(np.uint8), bits
 
 
+def coalesce_colors(pal_idx, colors, centers, tol):
+    """Hace que una celda reutilice el color de su vecina izquierda cuando la
+    diferencia con su color real es imperceptible.
+
+    Alarga las tiradas de color contiguas, que es lo que el reproductor dibuja
+    de un saque, y de paso mejora la compresión del delta.
+    """
+    out = pal_idx.copy()
+    tol2 = tol * tol
+    for x in range(1, out.shape[1]):
+        prev = out[:, x - 1]
+        drift = ((colors[:, x] - centers[prev]) ** 2).sum(-1)
+        out[:, x] = np.where(drift <= tol2, prev, pal_idx[:, x])
+    return out
+
+
 def quantize(colors, lut, bits):
     shift = 8 - bits
     c = colors.astype(np.uint8)
@@ -307,14 +346,17 @@ def encode_frame(cur, prev, out):
     out.append(";".join(parts))
 
 
-def process(clip, cols, suffix="", dump_preview=None):
+def process(clip, tier, dump_preview=None):
     path = os.path.join(VIDEO_DIR, clip["file"])
-    fps = clip["fps"]
-    eq_mix = clip.get("eq_mix", EQ_MIX)
-    gamma = clip.get("gamma", GAMMA)
+    fps = max(6, int(round(clip["fps"] * tier.get("fps_scale", 1.0))))
+    eq_mix = tier.get("eq_mix", clip.get("eq_mix", EQ_MIX))
+    gamma = tier.get("gamma", clip.get("gamma", GAMMA))
     sharp = clip.get("sharpen", SHARPEN)
     char_tol = clip.get("char_tol", CHAR_TOL)
     color_tol2 = clip.get("color_tol", COLOR_TOL) ** 2
+
+    cols = tier["cols"]
+    suffix = tier["suffix"]
 
     crop = detect_crop(path)
     # Las filas salen del aspecto del recorte, para no deformar la imagen.
@@ -350,8 +392,11 @@ def process(clip, cols, suffix="", dump_preview=None):
     for frame in stream_frames(path, cols, rows, fps, crop):
         lum = sharpen(luminance(frame), sharp)
         new_char = char_lut[lum.reshape(-1).astype(np.uint8)]
-        colors = normalized_colors(frame).reshape(-1, 3)
-        new_pal = quantize(colors, pal_lut, pal_bits)
+        colors2d = normalized_colors(frame)
+        new_pal = coalesce_colors(
+            quantize(colors2d, pal_lut, pal_bits), colors2d, centers, COLOR_RUN_TOL
+        ).reshape(-1)
+        colors = colors2d.reshape(-1, 3)
 
         if first:
             held_char, held_pal = new_char.copy(), new_pal.copy()
@@ -481,18 +526,30 @@ def main():
     ap.add_argument("ids", nargs="*", help="clips a procesar (por defecto, todos)")
     ap.add_argument("--cols", type=int, default=None,
                     help="fuerza una resolución única en vez de los dos niveles")
+    ap.add_argument("--calibrate", action="store_true",
+                    help="busca la mejor curva tonal por clip y la informa")
     args = ap.parse_args()
 
-    tiers = [{"suffix": "", "cols": args.cols}] if args.cols else TIERS
+    if args.calibrate:
+        print(f"{'clip':>12} {'eq_mix':>7} {'gamma':>6} {'Pearson':>8} {'cobertura':>10}")
+        for clip in CLIPS:
+            if args.ids and clip["id"] not in args.ids:
+                continue
+            (eq, gamma, score), rows = calibrate(
+                clip, args.cols or TIERS[-1]["cols"], return_all=True
+            )
+            cov = next(r[3] for r in rows if r[0] == eq and r[1] == gamma)
+            print(f'{clip["id"]:>12} {eq:>7} {gamma:>6} {score:>8.3f} {cov*100:>9.1f}%')
+        return
+
+    tiers = [dict(TIERS[-1], suffix="", cols=args.cols)] if args.cols else TIERS
     total = 0
     for tier in tiers:
         for clip in CLIPS:
             if args.ids and clip["id"] not in args.ids:
                 continue
             dump = os.path.join("/tmp", f"preview_{clip['id']}{tier['suffix']}.txt")
-            out, n, cols, rows, size = process(
-                clip, cols=tier["cols"], suffix=tier["suffix"], dump_preview=dump
-            )
+            out, n, cols, rows, size = process(clip, tier, dump_preview=dump)
             total += size
             label = clip["id"] + tier["suffix"]
             print(f"{label:<14} {cols}x{rows} {n:>5} frames  {size/1024:>8.1f} KB")
@@ -501,3 +558,85 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+# --------------------------------------------------------------------------
+# Calibración
+# --------------------------------------------------------------------------
+
+def calibrate(clip, cols, frames=5, return_all=False):
+    """Elige la curva tonal que mejor reproduce el brillo de ESTE clip.
+
+    Los cinco clips tienen rangos dinámicos muy distintos: los más oscuros
+    necesitan bastante ecualización para no aplastarse contra el negro, y los
+    más contrastados salen mejor con una curva casi lineal. En vez de imponer
+    una sola curva, probamos varias y nos quedamos con la que maximiza la
+    correlación entre el brillo real de cada celda y el que el ASCII pinta.
+
+    La correlación sola no alcanza como objetivo: como la fuente es mayormente
+    oscura, una curva que hunda los grises puntúa alto simplemente dejando la
+    pantalla en negro. Medido, el óptimo sin restricción vaciaba el 43% de las
+    celdas. Por eso exigimos además que el ASCII siga pintando algo donde el
+    video tiene contenido (MIN_COVERAGE), y sólo entre las curvas que cumplen
+    eso buscamos la de mayor correlación.
+    """
+    from PIL import Image, ImageDraw, ImageFont
+
+    font_path = "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf"
+    font = ImageFont.truetype(font_path, 64)
+    advance = int(round(font.getlength("M")))
+    ink = []
+    for ch in RAMP:
+        img = Image.new("L", (advance, 64), 0)
+        ImageDraw.Draw(img).text((0, 0), ch, font=font, fill=255)
+        ink.append(np.asarray(img, dtype=np.float32).mean() / 255.0)
+    ink = np.array(ink, dtype=np.float32)
+
+    path = os.path.join(VIDEO_DIR, clip["file"])
+    crop = detect_crop(path)
+    rows = max(2, int(round(cols * CELL_ASPECT * crop[3] / crop[2])))
+
+    sample = list(stream_frames(path, cols, rows, 2, crop))
+    if not sample:
+        return EQ_MIX, GAMMA, 0.0
+    step = max(1, len(sample) // frames)
+    probes = sample[::step][:frames]
+
+    lum_samples = np.concatenate(
+        [sharpen(luminance(f), SHARPEN).reshape(-1).astype(np.uint8) for f in sample]
+    )
+    colors = np.concatenate(
+        [normalized_colors(f).reshape(-1, 3) for f in sample[:: max(1, len(sample) // 20)]]
+    )
+    centers = build_palette(colors[colors.max(1) > 18] if (colors.max(1) > 18).any() else colors)
+    pal_lut, pal_bits = palette_lut(centers)
+    center_lum = luminance(centers.reshape(1, -1, 3)).reshape(-1)
+
+    best = (EQ_MIX, GAMMA, -1.0)
+    results = []
+    for eq in (0.0, 0.05, 0.10, 0.15, 0.25, 0.40, 0.55, 0.70):
+        for gamma in (1.0, 1.25, 1.45, 1.70, 2.00, 2.40, 2.90):
+            lut = tone_curve(lum_samples, eq, gamma)
+            scores, covers = [], []
+            for frame in probes:
+                lum = sharpen(luminance(frame), SHARPEN)
+                chars = lut[lum.astype(np.uint8)].reshape(-1)
+                pal = quantize(normalized_colors(frame), pal_lut, pal_bits).reshape(-1)
+                source = luminance(frame).reshape(-1)
+                painted = ink[chars] * center_lum[pal]
+                if painted.std() < 1e-6:
+                    continue
+                scores.append(np.corrcoef(source, painted)[0, 1])
+                visible = source > 18
+                covers.append((chars[visible] > 0).mean() if visible.any() else 1.0)
+            if scores:
+                score = float(np.mean(scores))
+                coverage = float(np.mean(covers))
+                results.append((eq, gamma, score, coverage))
+                if coverage >= MIN_COVERAGE and score > best[2]:
+                    best = (eq, gamma, score)
+    if best[2] < 0 and results:      # ninguna curva cumple: nos quedamos con la que más conserva
+        e, g, sc, _ = max(results, key=lambda r: r[3])
+        best = (e, g, sc)
+    results.sort(key=lambda r: -r[2])
+    return best if not return_all else (best, results)

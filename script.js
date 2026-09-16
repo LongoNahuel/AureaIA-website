@@ -500,6 +500,7 @@ function initContactParticles() {
   const metrics = document.getElementById('asciiMetrics');
   const metricsList = document.getElementById('asciiMetricsList');
   const plainText = document.getElementById('asciiPlainText');
+  const tintBg = document.getElementById('asciiTint');
   const metaVideo = document.getElementById('stageMetaVideo');
   const metaAscii = document.getElementById('stageMetaAscii');
   const tagEl = document.getElementById('videoModalTag');
@@ -647,7 +648,7 @@ function initContactParticles() {
     const detailed = id + '.hi';
     canvas.dataset.ascii = detailed;
 
-    mountAscii(canvas, { fit: 'contain', monochrome: plainText.checked })
+    mountAscii(canvas, { fit: 'contain', monochrome: plainText.checked, tint: tintBg.checked })
       .then(instance => {
         if (!instance || canvas.dataset.ascii !== detailed) return;
         clip = instance;
@@ -700,6 +701,10 @@ function initContactParticles() {
 
   plainText.addEventListener('change', () => {
     if (clip) clip.setMonochrome(plainText.checked);
+  });
+
+  tintBg.addEventListener('change', () => {
+    if (clip) clip.setTint(tintBg.checked);
   });
 
   closeBtn.addEventListener('click', closeModal);

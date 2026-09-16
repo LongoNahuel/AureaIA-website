@@ -2,15 +2,21 @@
 """
 video_to_ascii.py — convierte los videos del portfolio a animaciones ASCII a color.
 
-Muestrea cada video a una grilla de celdas de caracteres, elige el carácter por
-luminancia y el color por el tono promedio de la celda, y empaqueta la secuencia
-como JSON delta-comprimido que reproduce ascii-player.js en el navegador.
+Muestrea cada video a una grilla de celdas de caracteres: el carácter codifica
+la luminancia y el color el matiz de la celda. La secuencia se empaqueta como
+JSON delta-comprimido que reproduce ascii-player.js en el navegador.
+
+El procesado es en streaming (una pasada de estadísticas a bajo fps y otra de
+codificación), así que la memoria no depende de la duración ni de la
+resolución del clip.
 
 Uso:
     python3 tools/video_to_ascii.py                # procesa todos los clips
     python3 tools/video_to_ascii.py manos          # procesa uno solo
+    python3 tools/video_to_ascii.py --cols 200     # prueba otra resolución
 """
 
+import argparse
 import json
 import os
 import subprocess
@@ -24,9 +30,20 @@ OUT_DIR = os.path.join(ROOT, "ascii")
 
 FFMPEG = os.environ.get("FFMPEG_BIN", "ffmpeg")
 
-# 16 niveles de densidad, de vacío a sólido.
-RAMP = " .`,:;i1tfLCG08@"
-PALETTE_SIZE = 16
+# 64 niveles de densidad. La rampa no está copiada de ninguna tabla: sale de
+# medir la cobertura de tinta real de cada ASCII imprimible en una
+# monoespaciada y quedarse con 64 densidades equiespaciadas (ver derive_ramp).
+RAMP = " _.-',:~^;!*r+/()|=><?lcvij][Lz7xtf1{CyIF2%w5aXP$GAUK6OD#R8Q@WBM"
+
+# Alfabeto de 6 bits para las celdas: dos caracteres por celda (nivel + color).
+# No contiene ni ',' ni ';', que son los separadores del formato delta.
+B64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+
+PALETTE_SIZE = 64
+
+# Relación ancho/alto de una celda de texto monoespaciado. El reproductor usa
+# la misma constante para que la grilla conserve el aspecto del video.
+CELL_ASPECT = 0.6
 
 # Curva tonal por defecto. Los clips son capturas de pantalla con tema oscuro:
 # casi toda la luminancia se apelotona entre 18 y 65, así que una rampa lineal
@@ -37,26 +54,39 @@ GAMMA = 1.45      # >1 hunde los grises bajos para que el fondo quede vacío
 SHARPEN = 1.0     # realce local: devuelve nitidez al texto tras el submuestreo
 SATURATION = 1.6
 
-# Relación ancho/alto de una celda de texto monoespaciado. El reproductor usa
-# la misma constante para que la grilla conserve el aspecto del video.
-CELL_ASPECT = 0.6
+# Histéresis temporal (ver stabilize).
+CHAR_TOL = 2          # niveles de 64 que debe saltar una celda para actualizarse
+COLOR_TOL = 46.0      # distancia RGB para aceptar un cambio de color
 
-CLIPS = [
-    {"id": "robo", "file": "Analítica de robo_urto.mp4.mp4", "cols": 132, "fps": 12},
-    {"id": "chatbot", "file": "ChatBot.mp4.mp4", "cols": 132, "fps": 10},
-    {"id": "celulares", "file": "Detección de celulares.mp4.mp4", "cols": 132, "fps": 12},
-    {"id": "manos", "file": "Detección de manos.mp4.mp4", "cols": 132, "fps": 15},
-    {"id": "mirada", "file": "Detección de mirada.mp4.mp4", "cols": 132, "fps": 12},
+# Dos niveles de detalle. Una tarjeta mide ~470 px de ancho: a 260 columnas
+# cada carácter caería en 1,8 px, así que ahí sólo se pagaría peso sin ganar
+# nitidez. El nivel "hi" se descarga únicamente al abrir el lightbox.
+TIERS = [
+    {"suffix": "", "cols": 132},        # tarjetas del portfolio
+    {"suffix": ".hi", "cols": 260},     # lightbox y vista comparativa
 ]
 
+CLIPS = [
+    {"id": "robo", "file": "Analítica de robo_urto.mp4.mp4", "fps": 12},
+    {"id": "chatbot", "file": "ChatBot.mp4.mp4", "fps": 10},
+    {"id": "celulares", "file": "Detección de celulares.mp4.mp4", "fps": 12},
+    {"id": "manos", "file": "Detección de manos.mp4.mp4", "fps": 15},
+    {"id": "mirada", "file": "Detección de mirada.mp4.mp4", "fps": 12},
+]
+
+
+# --------------------------------------------------------------------------
+# Lectura del video
+# --------------------------------------------------------------------------
 
 def source_size(path):
     out = subprocess.run(
         [FFMPEG, "-hide_banner", "-i", path], stderr=subprocess.PIPE
     ).stderr.decode("utf-8", "replace")
     for token in out.split():
-        if "x" in token and token.rstrip(",").replace("x", "").isdigit():
-            w, _, h = token.rstrip(",").partition("x")
+        token = token.rstrip(",")
+        if "x" in token and token.replace("x", "").isdigit():
+            w, _, h = token.partition("x")
             if int(w) > 100 and int(h) > 100:
                 return int(w), int(h)
     raise RuntimeError("no pude leer la resolución de " + path)
@@ -92,65 +122,95 @@ def detect_crop(path, threshold=16, probe_w=160, probe_h=90):
     return x, y, max(w, 2), max(h, 2)
 
 
-def decode_frames(path, cols, rows, fps, crop=None):
-    """Devuelve un array (n_frames, rows, cols, 3) uint8 promediando por celda."""
+def stream_frames(path, cols, rows, fps, crop=None):
+    """Genera frames (rows, cols, 3) uint8 promediando cada celda.
+
+    Streaming: nunca tenemos más de un frame en memoria, así que subir columnas
+    o duración no cambia el consumo.
+    """
     chain = []
     if crop:
         x, y, w, h = crop
         chain.append(f"crop={w}:{h}:{x}:{y}")
     chain += [f"fps={fps}", f"scale={cols}:{rows}:flags=area"]
+
     cmd = [
         FFMPEG, "-v", "error", "-i", path,
         "-vf", ",".join(chain),
         "-f", "rawvideo", "-pix_fmt", "rgb24", "-",
     ]
-    raw = subprocess.run(cmd, stdout=subprocess.PIPE, check=True).stdout
     stride = cols * rows * 3
-    n = len(raw) // stride
-    return np.frombuffer(raw[: n * stride], dtype=np.uint8).reshape(n, rows, cols, 3)
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, bufsize=stride * 4)
+    try:
+        while True:
+            buf = proc.stdout.read(stride)
+            while len(buf) < stride:       # los pipes devuelven lecturas cortas
+                chunk = proc.stdout.read(stride - len(buf))
+                if not chunk:
+                    break
+                buf += chunk
+            if len(buf) < stride:
+                break
+            yield np.frombuffer(buf, dtype=np.uint8).reshape(rows, cols, 3)
+    finally:
+        # Si cortamos antes de tiempo (p. ej. al volcar sólo el póster),
+        # matamos ffmpeg en vez de dejarlo escribir contra un pipe cerrado.
+        if proc.poll() is None:
+            proc.terminate()
+        proc.stdout.close()
+        proc.wait()
 
 
-def luminance(frames):
-    f = frames.astype(np.float32)
+# --------------------------------------------------------------------------
+# Luminancia -> carácter
+# --------------------------------------------------------------------------
+
+def luminance(frame):
+    f = frame.astype(np.float32)
     return 0.299 * f[..., 0] + 0.587 * f[..., 1] + 0.114 * f[..., 2]
 
 
 def sharpen(lum, amount):
-    """Máscara de enfoque 3x3 sobre la grilla de celdas."""
+    """Máscara de enfoque 3x3 sobre la grilla de celdas de un frame."""
     if not amount:
         return lum
-    p = np.pad(lum, ((0, 0), (1, 1), (1, 1)), mode="edge")
+    p = np.pad(lum, 1, mode="edge")
     blur = (
-        p[:, :-2, :-2] + p[:, :-2, 1:-1] + p[:, :-2, 2:]
-        + p[:, 1:-1, :-2] + p[:, 1:-1, 1:-1] + p[:, 1:-1, 2:]
-        + p[:, 2:, :-2] + p[:, 2:, 1:-1] + p[:, 2:, 2:]
+        p[:-2, :-2] + p[:-2, 1:-1] + p[:-2, 2:]
+        + p[1:-1, :-2] + p[1:-1, 1:-1] + p[1:-1, 2:]
+        + p[2:, :-2] + p[2:, 1:-1] + p[2:, 2:]
     ) / 9.0
     return np.clip(lum + amount * (lum - blur), 0.0, 255.0)
 
 
-def char_indices(lum, eq_mix=EQ_MIX, gamma=GAMMA, sharp=SHARPEN):
-    """Luminancia -> índice en RAMP."""
-    lum = sharpen(lum, sharp)
-    sample = lum[:: max(1, len(lum) // 40)]
+def tone_curve(samples, eq_mix, gamma):
+    """Tabla de 256 entradas: luminancia -> índice de RAMP.
 
-    lo, hi = np.percentile(sample, 2.0), np.percentile(sample, 99.5)
+    Precalcularla como LUT deja el trabajo por frame en un simple indexado.
+    """
+    lo, hi = np.percentile(samples, 2.0), np.percentile(samples, 99.5)
     if hi - lo < 8:
         lo, hi = 0.0, 255.0
-    linear = np.clip((lum - lo) / (hi - lo), 0.0, 1.0)
+
+    levels = np.arange(256, dtype=np.float32)
+    linear = np.clip((levels - lo) / (hi - lo), 0.0, 1.0)
 
     # CDF exclusiva (fracción de celdas estrictamente más oscuras). Con la CDF
     # inclusiva el negro puro heredaría el peso de todo su bin y el fondo se
     # llenaría de caracteres; así el nivel más oscuro siempre cae en el espacio.
-    hist, _ = np.histogram(sample, bins=256, range=(0, 256))
+    hist, _ = np.histogram(samples, bins=256, range=(0, 256))
     cdf = (np.cumsum(hist) - hist).astype(np.float32)
     cdf /= max(cdf[-1], 1.0)
-    equalized = np.clip(cdf[np.clip(lum, 0, 255).astype(np.int32)], 0.0, 1.0)
 
-    norm = np.clip(eq_mix * equalized + (1.0 - eq_mix) * linear, 0.0, 1.0) ** gamma
-    return np.rint(norm * (len(RAMP) - 1)).astype(np.uint8)
+    norm = np.clip(eq_mix * np.clip(cdf, 0, 1) + (1.0 - eq_mix) * linear, 0.0, 1.0)
+    return np.rint(norm ** gamma * (len(RAMP) - 1)).astype(np.uint8)
 
 
-def normalized_colors(frames, saturation=SATURATION):
+# --------------------------------------------------------------------------
+# Color
+# --------------------------------------------------------------------------
+
+def normalized_colors(frame, saturation=SATURATION):
     """Matiz de cada celda con el brillo neutralizado.
 
     El brillo ya lo aporta el carácter, así que el color sólo guarda el tono.
@@ -158,7 +218,7 @@ def normalized_colors(frames, saturation=SATURATION):
     alertas) se distingan del gris, y forzamos a gris claro las celdas casi
     negras, donde normalizar sólo amplificaría ruido de compresión.
     """
-    f = frames.astype(np.float32)
+    f = frame.astype(np.float32)
     mx = f.max(axis=-1, keepdims=True)
     grey = f.mean(axis=-1, keepdims=True)
     f = grey + (f - grey) * saturation
@@ -167,182 +227,276 @@ def normalized_colors(frames, saturation=SATURATION):
     return np.clip(scaled, 0, 255)
 
 
-def build_palette(colors, lum, k=PALETTE_SIZE, iters=12, seed=7):
-    """k-means sobre los colores normalizados, ponderando las celdas visibles."""
-    flat = colors.reshape(-1, 3)
-    weights = lum.reshape(-1)
-    # Sólo entrenamos con celdas que se van a ver.
-    visible = flat[weights > 18]
-    if len(visible) < k:
-        visible = flat
+def build_palette(samples, k=PALETTE_SIZE, iters=14, seed=7):
+    """k-means sobre los colores normalizados visibles."""
     rng = np.random.default_rng(seed)
-    sample = visible[rng.choice(len(visible), size=min(60000, len(visible)), replace=False)]
+    if len(samples) > 80000:
+        samples = samples[rng.choice(len(samples), 80000, replace=False)]
 
-    centers = sample[rng.choice(len(sample), size=k, replace=False)].astype(np.float32)
+    centers = samples[rng.choice(len(samples), k, replace=False)].astype(np.float32)
     for _ in range(iters):
-        d = ((sample[:, None, :] - centers[None, :, :]) ** 2).sum(-1)
-        lab = d.argmin(1)
+        labels = np.argmin(
+            ((samples[:, None, :] - centers[None, :, :]) ** 2).sum(-1), axis=1
+        )
         for i in range(k):
-            m = lab == i
+            m = labels == i
             if m.any():
-                centers[i] = sample[m].mean(0)
+                centers[i] = samples[m].mean(0)
             else:
-                centers[i] = sample[rng.integers(len(sample))]
+                centers[i] = samples[rng.integers(len(samples))]
     return np.clip(centers, 0, 255)
 
 
-def quantize(colors, centers):
-    flat = colors.reshape(-1, 3)
-    out = np.empty(len(flat), dtype=np.uint8)
-    step = 400_000
-    for i in range(0, len(flat), step):
-        chunk = flat[i : i + step]
-        d = ((chunk[:, None, :] - centers[None, :, :]) ** 2).sum(-1)
-        out[i : i + step] = d.argmin(1).astype(np.uint8)
-    return out.reshape(colors.shape[:-1])
+def palette_lut(centers, bits=5):
+    """LUT 3D (32³) de RGB -> índice de paleta.
 
-
-def stabilize(chars, colors, char_tol=1, min_visible=2):
-    """Histéresis temporal: ignora los micro-cambios de celda entre frames.
-
-    El ruido de compresión hace oscilar cada celda un nivel arriba y abajo
-    constantemente. Sin filtrar, esas oscilaciones parpadean en pantalla y
-    además dominan el delta: casi todas las celdas se marcan como "cambiadas"
-    en cada frame. Sólo aceptamos un cambio de carácter si salta más de
-    `char_tol` niveles, y uno de color si la celda es visible en ambos estados.
+    Calcular la distancia a 64 centros para cada celda de cada frame es el paso
+    más caro del pipeline; con la LUT queda en un indexado.
     """
-    out_c = np.empty_like(chars)
-    out_p = np.empty_like(colors)
-    cur_c, cur_p = chars[0].copy(), colors[0].copy()
-    out_c[0], out_p[0] = cur_c, cur_p
-
-    for i in range(1, len(chars)):
-        nc, npx = chars[i], colors[i]
-        moved = np.abs(nc.astype(np.int16) - cur_c.astype(np.int16)) > char_tol
-        recolored = (npx != cur_p) & (nc >= min_visible) & (cur_c >= min_visible)
-        change = moved | recolored
-        cur_c = np.where(change, nc, cur_c)
-        cur_p = np.where(change, npx, cur_p)
-        out_c[i], out_p[i] = cur_c, cur_p
-
-    return out_c, out_p
+    side = 1 << bits
+    step = 256 / side
+    axis = (np.arange(side) + 0.5) * step
+    grid = np.stack(np.meshgrid(axis, axis, axis, indexing="ij"), -1).reshape(-1, 3)
+    d = ((grid[:, None, :] - centers[None, :, :]) ** 2).sum(-1)
+    return d.argmin(1).astype(np.uint8), bits
 
 
-HEX = "0123456789abcdef"
+def quantize(colors, lut, bits):
+    shift = 8 - bits
+    c = colors.astype(np.uint8)
+    idx = ((c[..., 0] >> shift).astype(np.int32) << (2 * bits)) \
+        | ((c[..., 1] >> shift).astype(np.int32) << bits) \
+        | (c[..., 2] >> shift).astype(np.int32)
+    return lut[idx]
 
 
-def encode_delta(cells):
-    """cells: (n, rows*cols) uint8 con charIdx<<4 | colorIdx.
+# --------------------------------------------------------------------------
+# Codificación
+# --------------------------------------------------------------------------
 
-    Cada frame es "salto,datos;salto,datos;..." donde datos son pares hex.
-    El primero se emite completo.
+CELL = [B64[c] + B64[p] for c in range(64) for p in range(64)]
+
+
+def encode_frame(cur, prev, out):
+    """Añade a `out` el delta de `cur` respecto a `prev`.
+
+    Formato: "salto,celdas;salto,celdas;…". Cada celda son dos caracteres
+    base64: nivel de la rampa y entrada de la paleta. El frame 0 va completo.
     """
-    lut = [HEX[v >> 4] + HEX[v & 15] for v in range(256)]
-    frames = []
-    prev = None
-    for cur in cells:
-        if prev is None:
-            frames.append("0," + "".join(lut[v] for v in cur))
-            prev = cur
-            continue
+    if prev is None:
+        out.append("0," + "".join(CELL[v] for v in cur))
+        return
 
-        diff = np.flatnonzero(cur != prev)
-        if len(diff) == 0:
-            frames.append("")
-            prev = cur
-            continue
+    diff = np.flatnonzero(cur != prev)
+    if len(diff) == 0:
+        out.append("")
+        return
 
-        # Agrupamos posiciones contiguas (tolerando huecos de 1-2 celdas, que
-        # salen más baratos que abrir un segmento nuevo).
-        breaks = np.flatnonzero(np.diff(diff) > 3)
-        starts = np.concatenate(([0], breaks + 1))
-        ends = np.concatenate((breaks + 1, [len(diff)]))
+    # Agrupamos posiciones contiguas tolerando huecos de hasta 3 celdas: salen
+    # más baratos que abrir un segmento nuevo con su salto y su separador.
+    breaks = np.flatnonzero(np.diff(diff) > 3)
+    starts = np.concatenate(([0], breaks + 1))
+    ends = np.concatenate((breaks + 1, [len(diff)]))
 
-        parts = []
-        cursor = 0
-        for s, e in zip(starts, ends):
-            a, b = int(diff[s]), int(diff[e - 1]) + 1
-            parts.append(f"{a - cursor}," + "".join(lut[v] for v in cur[a:b]))
-            cursor = b
-        frames.append(";".join(parts))
-        prev = cur
-    return frames
+    parts = []
+    cursor = 0
+    for s, e in zip(starts, ends):
+        a, b = int(diff[s]), int(diff[e - 1]) + 1
+        parts.append(f"{a - cursor}," + "".join(CELL[v] for v in cur[a:b]))
+        cursor = b
+    out.append(";".join(parts))
 
 
-def pick_poster(cells):
-    """Frame de portada: el más "lleno" del tramo central del clip.
-
-    El primer frame suele ser una pantalla en negro o una app todavía sin
-    arrancar, así que como imagen fija de la tarjeta no dice nada.
-    """
-    lo = int(len(cells) * 0.15)
-    hi = max(lo + 1, int(len(cells) * 0.85))
-    ink = (cells[lo:hi] >> 4).mean(axis=1)
-    return int(lo + ink.argmax())
-
-
-def preview(cells, cols, rows, index=0):
-    """Vuelca un frame como texto plano para revisar la calidad a ojo."""
-    grid = cells[index].reshape(rows, cols)
-    return "\n".join("".join(RAMP[v >> 4] for v in row) for row in grid)
-
-
-def process(clip, dump_preview=None):
+def process(clip, cols, suffix="", dump_preview=None):
     path = os.path.join(VIDEO_DIR, clip["file"])
-    cols, fps = clip["cols"], clip["fps"]
+    fps = clip["fps"]
+    eq_mix = clip.get("eq_mix", EQ_MIX)
+    gamma = clip.get("gamma", GAMMA)
+    sharp = clip.get("sharpen", SHARPEN)
+    char_tol = clip.get("char_tol", CHAR_TOL)
+    color_tol2 = clip.get("color_tol", COLOR_TOL) ** 2
 
     crop = detect_crop(path)
     # Las filas salen del aspecto del recorte, para no deformar la imagen.
     rows = max(2, int(round(cols * CELL_ASPECT * crop[3] / crop[2])))
+    n_cells = cols * rows
 
-    frames = decode_frames(path, cols, rows, fps, crop=crop)
-    lum = luminance(frames)
-    chars = char_indices(
-        lum,
-        eq_mix=clip.get("eq_mix", EQ_MIX),
-        gamma=clip.get("gamma", GAMMA),
-        sharp=clip.get("sharpen", SHARPEN),
-    )
-    colors = normalized_colors(frames)
-    centers = build_palette(colors, lum)
-    cidx = quantize(colors, centers)
+    # --- pasada 1: estadísticas sobre una muestra a bajo fps ---------------
+    lum_samples, color_samples = [], []
+    for frame in stream_frames(path, cols, rows, 2, crop):
+        lum = sharpen(luminance(frame), sharp)
+        lum_samples.append(lum.reshape(-1).astype(np.uint8))
+        col = normalized_colors(frame).reshape(-1, 3)
+        color_samples.append(col[lum.reshape(-1) > 18])
 
-    chars = chars.reshape(len(frames), rows * cols)
-    cidx = cidx.reshape(len(frames), rows * cols)
-    chars, cidx = stabilize(chars, cidx)
-    cells = ((chars.astype(np.uint16) << 4) | cidx).astype(np.uint8)
+    lum_samples = np.concatenate(lum_samples)
+    color_samples = np.concatenate(color_samples)
+    if len(color_samples) < PALETTE_SIZE:
+        color_samples = np.full((PALETTE_SIZE, 3), 235.0, dtype=np.float32)
+
+    char_lut = tone_curve(lum_samples, eq_mix, gamma)
+    centers = build_palette(color_samples)
+    pal_lut, pal_bits = palette_lut(centers)
+    del lum_samples, color_samples
+
+    # --- pasada 2: codificación -------------------------------------------
+    frames = []
+    prev = None                                  # último estado emitido
+    held_char = np.zeros(n_cells, dtype=np.uint8)
+    held_pal = np.zeros(n_cells, dtype=np.uint8)
+    ink_per_frame = []
+    first = True
+
+    for frame in stream_frames(path, cols, rows, fps, crop):
+        lum = sharpen(luminance(frame), sharp)
+        new_char = char_lut[lum.reshape(-1).astype(np.uint8)]
+        colors = normalized_colors(frame).reshape(-1, 3)
+        new_pal = quantize(colors, pal_lut, pal_bits)
+
+        if first:
+            held_char, held_pal = new_char.copy(), new_pal.copy()
+            first = False
+        else:
+            held_char, held_pal = stabilize(
+                held_char, held_pal, new_char, new_pal, colors, centers,
+                char_tol, color_tol2,
+            )
+
+        cells = (held_char.astype(np.uint16) << 6) | held_pal
+        encode_frame(cells, prev, frames)
+        prev = cells
+        ink_per_frame.append(float(held_char.mean()))
+
+    poster = pick_poster(ink_per_frame)
 
     if dump_preview:
-        with open(dump_preview, "w") as fh:
-            fh.write(preview(cells, cols, rows, index=pick_poster(cells)))
+        dump_text_preview(path, cols, rows, fps, crop, char_lut, sharp, poster, dump_preview)
 
     data = {
         "id": clip["id"],
         "cols": cols,
         "rows": rows,
         "fps": fps,
-        "cellAspect": CELL_ASPECT,
-        "poster": pick_poster(cells),
         "ramp": RAMP,
+        "alphabet": B64,
+        "cellAspect": CELL_ASPECT,
+        "poster": poster,
+        "source": {
+            "width": crop[2],
+            "height": crop[3],
+            "bytes": os.path.getsize(path),
+            "file": "videos/" + clip["file"],
+            # Recorte aplicado, para que la vista comparativa pueda encuadrar
+            # el <video> exactamente igual que el ASCII.
+            "crop": {"x": crop[0], "y": crop[1], "w": crop[2], "h": crop[3]},
+            "full": dict(zip(("w", "h"), source_size(path))),
+        },
         "palette": ["#%02x%02x%02x" % tuple(int(round(c)) for c in col) for col in centers],
-        "frames": encode_delta(cells),
+        "frames": frames,
     }
 
     os.makedirs(OUT_DIR, exist_ok=True)
-    out = os.path.join(OUT_DIR, clip["id"] + ".json")
+    out = os.path.join(OUT_DIR, clip["id"] + suffix + ".json")
     with open(out, "w") as fh:
         json.dump(data, fh, separators=(",", ":"))
-    return out, len(frames), os.path.getsize(out)
+    return out, len(frames), cols, rows, os.path.getsize(out)
+
+
+def stabilize(held_char, held_pal, new_char, new_pal, colors, centers,
+              char_tol, color_tol2):
+    """Histéresis temporal: ignora los micro-cambios de celda entre frames.
+
+    El ruido de compresión hace oscilar cada celda un nivel arriba y abajo
+    constantemente. Sin filtrar, esas oscilaciones parpadean en pantalla y
+    además dominan el delta: casi todas las celdas se marcan como "cambiadas"
+    en cada frame. Un carácter sólo cambia si salta más de `char_tol` niveles;
+    un color, sólo si el color real de la celda se alejó lo suficiente del que
+    ya estamos mostrando (comparar índices de paleta no serviría: son
+    etiquetas, no una escala).
+    """
+    moved = np.abs(new_char.astype(np.int16) - held_char.astype(np.int16)) > char_tol
+    drift = ((colors - centers[held_pal]) ** 2).sum(-1) > color_tol2
+    visible = (new_char >= 2) & (held_char >= 2)
+    change = moved | (drift & visible)
+
+    return np.where(change, new_char, held_char), np.where(change, new_pal, held_pal)
+
+
+def pick_poster(ink_per_frame):
+    """Frame de portada: el más "lleno" del tramo central del clip.
+
+    El primer frame suele ser una pantalla en negro o una app todavía sin
+    arrancar, así que como imagen fija de la tarjeta no dice nada.
+    """
+    n = len(ink_per_frame)
+    lo = int(n * 0.15)
+    hi = max(lo + 1, int(n * 0.85))
+    return int(lo + int(np.argmax(ink_per_frame[lo:hi])))
+
+
+def dump_text_preview(path, cols, rows, fps, crop, char_lut, sharp, index, out_path):
+    """Vuelca el frame de portada como texto plano, para revisarlo a ojo."""
+    for i, frame in enumerate(stream_frames(path, cols, rows, fps, crop)):
+        if i < index:
+            continue
+        lum = sharpen(luminance(frame), sharp)
+        grid = char_lut[lum.astype(np.uint8)]
+        with open(out_path, "w") as fh:
+            fh.write("\n".join("".join(RAMP[v] for v in row) for row in grid))
+        return
+
+
+def derive_ramp(font_path="/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", n=64):
+    """Regenera RAMP midiendo la tinta real de cada ASCII imprimible.
+
+    No se usa en tiempo de ejecución; queda documentado cómo se obtuvo la rampa
+    por si se cambia la tipografía del reproductor.
+    """
+    from PIL import Image, ImageDraw, ImageFont
+
+    font = ImageFont.truetype(font_path, 64)
+    density = {}
+    for code in range(32, 127):
+        ch = chr(code)
+        if ch in '"\\`':          # rompen el JSON o son visualmente ambiguos
+            continue
+        img = Image.new("L", (40, 74), 0)
+        ImageDraw.Draw(img).text((2, 2), ch, font=font, fill=255)
+        density[ch] = float(np.asarray(img, dtype=np.float32).mean() / 255.0)
+
+    ordered = sorted(density.items(), key=lambda kv: kv[1])
+    targets = np.linspace(ordered[0][1], ordered[-1][1], n)
+    chosen, used = [], set()
+    for t in targets:
+        best = min((c for c, _ in ordered if c not in used),
+                   key=lambda c: abs(density[c] - t))
+        used.add(best)
+        chosen.append(best)
+    chosen.sort(key=lambda c: density[c])
+    return "".join(chosen)
 
 
 def main():
-    wanted = sys.argv[1:]
-    for clip in CLIPS:
-        if wanted and clip["id"] not in wanted:
-            continue
-        dump = os.path.join("/tmp", f"preview_{clip['id']}.txt")
-        out, n, size = process(clip, dump_preview=dump)
-        print(f"{clip['id']:<10} {n:>5} frames  {size/1024:>8.1f} KB  -> {out}")
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("ids", nargs="*", help="clips a procesar (por defecto, todos)")
+    ap.add_argument("--cols", type=int, default=None,
+                    help="fuerza una resolución única en vez de los dos niveles")
+    args = ap.parse_args()
+
+    tiers = [{"suffix": "", "cols": args.cols}] if args.cols else TIERS
+    total = 0
+    for tier in tiers:
+        for clip in CLIPS:
+            if args.ids and clip["id"] not in args.ids:
+                continue
+            dump = os.path.join("/tmp", f"preview_{clip['id']}{tier['suffix']}.txt")
+            out, n, cols, rows, size = process(
+                clip, cols=tier["cols"], suffix=tier["suffix"], dump_preview=dump
+            )
+            total += size
+            label = clip["id"] + tier["suffix"]
+            print(f"{label:<14} {cols}x{rows} {n:>5} frames  {size/1024:>8.1f} KB")
+    print(f"{'TOTAL':<14} {total/1024/1024:.2f} MB")
 
 
 if __name__ == "__main__":

@@ -235,7 +235,7 @@ const asciiMounts = new Map();
 
 function mountAscii(canvas, options) {
   if (!asciiMounts.has(canvas)) {
-    const wrap = canvas.closest('.portfolio-video, .video-modal-player');
+    const wrap = canvas.closest('.portfolio-video, .stage-pane-ascii');
     wrap?.classList.add('ascii-loading');
 
     asciiMounts.set(
@@ -490,61 +490,172 @@ function initContactParticles() {
   window.addEventListener('resize', () => { stop(); build(); start(); }, { passive: true });
 }
 
-// Lightbox — el mismo clip en ASCII, a mayor tamaño, con acceso al MP4 original
+// Lightbox — ASCII, video original, y la comparación lado a lado
 (function () {
   const modal = document.getElementById('videoModal');
+  const stage = document.getElementById('videoModalStage');
   const canvas = document.getElementById('videoModalAscii');
   const player = document.getElementById('videoModalPlayer');
-  const toggle = document.getElementById('asciiSourceToggle');
-  const toggleLabel = document.getElementById('asciiSourceLabel');
+  const modes = document.getElementById('asciiModes');
+  const metrics = document.getElementById('asciiMetrics');
+  const metricsList = document.getElementById('asciiMetricsList');
+  const plainText = document.getElementById('asciiPlainText');
+  const metaVideo = document.getElementById('stageMetaVideo');
+  const metaAscii = document.getElementById('stageMetaAscii');
   const tagEl = document.getElementById('videoModalTag');
   const titleEl = document.getElementById('videoModalTitle');
   const descEl = document.getElementById('videoModalDesc');
   const closeBtn = document.getElementById('videoModalClose');
   const backdrop = document.getElementById('videoModalBackdrop');
 
-  if (!modal || !canvas) return;
+  if (!modal || !canvas || !stage) return;
 
-  let clip = null;      // AsciiClip del lightbox (uno por apertura)
+  let clip = null;          // AsciiClip del lightbox (uno por apertura)
   let videoSrc = '';
-  let showingAscii = true;
+  let mode = 'ascii';
+  let syncFrame = null;
+
+  /* --- utilidades ----------------------------------------------------- */
+
+  function formatBytes(n) {
+    if (!n) return '—';
+    const mb = n / 1048576;
+    return mb >= 1 ? mb.toFixed(1) + ' MB' : Math.round(n / 1024) + ' KB';
+  }
+
+  function transferredBytes(url) {
+    // Tamaño realmente transferido (ya comprimido por el servidor).
+    try {
+      const entry = performance.getEntriesByName(url).pop();
+      return entry ? entry.encodedBodySize || entry.transferSize || 0 : 0;
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  function renderMetrics(data) {
+    const cells = data.cols * data.rows;
+    const asciiBytes = transferredBytes(data.url);
+    const mp4Bytes = data.source ? data.source.bytes : 0;
+    const ratio = asciiBytes && mp4Bytes ? Math.round(mp4Bytes / asciiBytes) : 0;
+
+    const rows = [
+      ['Fuente', data.source.width + '×' + data.source.height + ' px'],
+      ['Grilla ASCII', data.cols + '×' + data.rows + ' caracteres'],
+      ['Caracteres por frame', cells.toLocaleString('es-AR')],
+      ['Niveles de densidad', String(data.ramp.length)],
+      ['Paleta', data.palette.length + ' colores'],
+      ['Muestreo', data.fps + ' fps · ' + data.frames.length + ' frames'],
+      ['Peso del MP4', formatBytes(mp4Bytes)],
+      ['Peso del ASCII', formatBytes(asciiBytes) +
+        (ratio ? ' <span class="delta">(' + ratio + '× menos)</span>' : '')],
+    ];
+
+    metricsList.innerHTML = rows
+      .map(([k, v]) => '<div><dt>' + k + '</dt><dd>' + v + '</dd></div>')
+      .join('');
+
+    applyFraming(data.source);
+    metaVideo.textContent = data.source.width + '×' + data.source.height;
+    metaAscii.textContent = data.cols + '×' + data.rows + ' · ' + data.ramp.length + ' niveles';
+  }
+
+  function applyFraming(source) {
+    // El codificador recorta las bandas negras del clip; aplicamos el mismo
+    // recorte al <video> por CSS para que los dos paneles muestren lo mismo.
+    const crop = source.crop;
+    const full = source.full;
+    if (!crop || !full) return;
+
+    stage.style.setProperty('--pane-aspect', crop.w + ' / ' + crop.h);
+    stage.style.setProperty('--vid-width', (full.w / crop.w) * 100 + '%');
+    stage.style.setProperty('--vid-left', (-crop.x / crop.w) * 100 + '%');
+    stage.style.setProperty('--vid-top', (-crop.y / crop.h) * 100 + '%');
+  }
+
+  /* --- sincronización -------------------------------------------------- */
+
+  function startSync() {
+    stopSync();
+    const step = () => {
+      if (mode !== 'compare') return;
+      // El video manda: el ASCII se posiciona en el mismo instante, así que
+      // los dos paneles muestran siempre el mismo frame.
+      if (clip) clip.seekSeconds(player.currentTime);
+      syncFrame = requestAnimationFrame(step);
+    };
+    syncFrame = requestAnimationFrame(step);
+  }
+
+  function stopSync() {
+    if (syncFrame) {
+      cancelAnimationFrame(syncFrame);
+      syncFrame = null;
+    }
+  }
+
+  function ensureVideoLoaded() {
+    // El MP4 sólo se descarga si el visitante pide verlo o comparar.
+    if (!videoSrc) return;
+    if (player.getAttribute('src') !== videoSrc) {
+      player.setAttribute('src', videoSrc);
+      player.load();
+    }
+  }
+
+  // Si el navegador no puede con el MP4, la comparación se queda sin lado
+  // izquierdo: lo decimos en vez de dejar un rectángulo negro.
+  player.addEventListener('error', () => {
+    stage.classList.add('video-error');
+  });
+  player.addEventListener('loadeddata', () => {
+    stage.classList.remove('video-error');
+  });
+
+  /* --- modos ----------------------------------------------------------- */
+
+  function setMode(next) {
+    mode = next;
+    stage.dataset.mode = next;
+    modal.classList.toggle('mode-compare', next === 'compare');
+    metrics.hidden = next !== 'compare';
+
+    modes.querySelectorAll('button').forEach(btn => {
+      const on = btn.dataset.mode === next;
+      btn.classList.toggle('is-active', on);
+      btn.setAttribute('aria-selected', String(on));
+    });
+
+    stopSync();
+
+    if (next === 'ascii') {
+      player.pause();
+      if (clip) clip.play();
+      return;
+    }
+
+    if (clip) clip.pause();
+    ensureVideoLoaded();
+    player.play().catch(() => {});
+    if (next === 'compare') startSync();
+  }
 
   function mountClip(id) {
     if (clip) { clip.destroy(); clip = null; }
     asciiMounts.delete(canvas);
-    canvas.dataset.ascii = id;
-    // 'contain' para ver el encuadre completo, no el recorte de la tarjeta.
-    mountAscii(canvas, { fit: 'contain' }).then(instance => {
-      if (!instance || canvas.dataset.ascii !== id) return;
-      clip = instance;
-      if (showingAscii && modal.classList.contains('show')) clip.play();
-    });
-  }
+    // Nivel de detalle alto: aquí el clip se ve a tamaño grande.
+    const detailed = id + '.hi';
+    canvas.dataset.ascii = detailed;
 
-  function showAscii() {
-    showingAscii = true;
-    canvas.hidden = false;
-    player.hidden = true;
-    player.pause();
-    toggle.setAttribute('aria-pressed', 'true');
-    toggleLabel.textContent = 'ASCII';
-    toggle.title = 'Ver el video original';
-    if (clip) clip.play();
-  }
-
-  function showVideo() {
-    showingAscii = false;
-    if (clip) clip.pause();
-    canvas.hidden = true;
-    player.hidden = false;
-    if (player.src !== videoSrc) {
-      player.src = videoSrc;
-      player.load();
-    }
-    toggle.setAttribute('aria-pressed', 'false');
-    toggleLabel.textContent = 'Video original';
-    toggle.title = 'Volver al ASCII';
-    player.play().catch(() => {});
+    mountAscii(canvas, { fit: 'contain', monochrome: plainText.checked })
+      .then(instance => {
+        if (!instance || canvas.dataset.ascii !== detailed) return;
+        clip = instance;
+        renderMetrics(instance.data);
+        if (!modal.classList.contains('show')) return;
+        if (mode === 'ascii') clip.play();
+        else if (mode === 'compare') startSync();
+      });
   }
 
   function openModal(card) {
@@ -554,7 +665,6 @@ function initContactParticles() {
     withAscii(cardCanvas, c => c.rewind());
 
     videoSrc = cardCanvas.dataset.video || '';
-    toggle.hidden = !videoSrc;
     tagEl.textContent = card.querySelector('.portfolio-tag')?.textContent || '';
     titleEl.textContent = card.querySelector('h3')?.textContent || '';
     descEl.textContent = card.querySelector('p')?.textContent || '';
@@ -564,12 +674,14 @@ function initContactParticles() {
     document.body.style.overflow = 'hidden';
 
     mountClip(cardCanvas.dataset.ascii);
-    showAscii();
+    setMode('ascii');
   }
 
   function closeModal() {
     modal.classList.remove('show');
+    modal.classList.remove('mode-compare');
     document.body.style.overflow = '';
+    stopSync();
     player.pause();
     player.removeAttribute('src');
     player.load();
@@ -581,9 +693,13 @@ function initContactParticles() {
     card.addEventListener('click', () => openModal(card));
   });
 
-  toggle.addEventListener('click', (e) => {
-    e.stopPropagation();
-    showingAscii ? showVideo() : showAscii();
+  modes.addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-mode]');
+    if (btn) setMode(btn.dataset.mode);
+  });
+
+  plainText.addEventListener('change', () => {
+    if (clip) clip.setMonochrome(plainText.checked);
   });
 
   closeBtn.addEventListener('click', closeModal);

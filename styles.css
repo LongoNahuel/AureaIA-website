@@ -597,7 +597,7 @@ textarea { resize: vertical; }
 }
 
 .portfolio-video.ascii-error::before,
-.video-modal-player.ascii-error::before {
+.stage-pane-ascii.ascii-error::before {
   content: 'ASCII no disponible';
   position: absolute;
   inset: 0;
@@ -986,7 +986,7 @@ textarea { resize: vertical; }
 
 .video-modal-close {
   position: absolute;
-  top: -46px;
+  top: 2px;
   right: 0;
   width: 38px;
   height: 38px;
@@ -1000,66 +1000,187 @@ textarea { resize: vertical; }
 
 .video-modal-close:hover { color: #fff; }
 
-.video-modal-player {
-  position: relative;
-  width: 100%;
-  background: #000;
-  border-radius: var(--radius);
-  overflow: hidden;
-  aspect-ratio: 16 / 9;
-  border: 1px solid var(--border);
+.video-modal-content {
+  /* Espacio en flujo para la barra superior, así el contenido puede
+     desplazarse en pantallas bajas sin recortar los controles. */
+  padding-top: 46px;
+  max-height: calc(100vh - 3rem);
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
-.video-modal-player video,
-.video-modal-player .ascii-canvas {
+.video-modal.mode-compare .video-modal-content {
+  width: min(1560px, 100%);
+}
+
+/* Selector de representación */
+.ascii-modes {
+  position: absolute;
+  top: 2px;
+  left: 0;
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+
+.ascii-modes button {
+  padding: 0.3rem 0.8rem;
+  background: transparent;
+  border: 0;
+  border-radius: 999px;
+  color: rgba(255, 255, 255, 0.55);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.64rem;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.ascii-modes button:hover { color: #fff; }
+
+.ascii-modes button.is-active {
+  background: var(--primary);
+  color: #fff;
+}
+
+/* Escenario: uno o dos paneles según el modo */
+.video-modal-stage {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.9rem;
+  align-items: start;
+}
+
+.video-modal-stage[data-mode="compare"] {
+  grid-template-columns: 1fr 1fr;
+}
+
+.video-modal-stage[data-mode="ascii"] .stage-pane-video,
+.video-modal-stage[data-mode="video"] .stage-pane-ascii {
+  display: none;
+}
+
+.stage-pane {
+  margin: 0;
+  min-width: 0;
+}
+
+.stage-pane figcaption {
+  display: none;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin-bottom: 0.4rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.62rem;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--primary-light);
+}
+
+.video-modal-stage[data-mode="compare"] .stage-pane figcaption {
+  display: flex;
+}
+
+.stage-meta {
+  color: var(--text-muted);
+  letter-spacing: 0.6px;
+  text-transform: none;
+}
+
+/* Los dos paneles comparten la proporción del recorte, y el <video> se
+   reencuadra con ese mismo recorte, para que la comparación sea a igual
+   encuadre y a igual tamaño. Las variables las fija el script al abrir. */
+.video-crop,
+.stage-pane .ascii-canvas {
   width: 100%;
-  height: 100%;
-  object-fit: contain;
+  aspect-ratio: var(--pane-aspect, 16 / 9);
+  display: block;
+  background: #000;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.video-crop {
+  position: relative;
+  overflow: hidden;
+}
+
+.video-crop video {
+  position: absolute;
+  width: var(--vid-width, 100%);
+  height: auto;
+  left: var(--vid-left, 0%);
+  top: var(--vid-top, 0%);
   display: block;
   background: #000;
 }
 
-.video-modal-player [hidden] { display: none; }
+/* Métricas de la comparación */
+.video-modal-stage.video-error .stage-pane-video figcaption::after {
+  content: 'no reproducible en este navegador';
+  color: var(--text-muted);
+  text-transform: none;
+  letter-spacing: 0.4px;
+}
 
-/* Conmutador ASCII / MP4 original */
-.ascii-source-toggle {
-  position: absolute;
-  top: -44px;
-  left: 0;
+.ascii-metrics {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1.2rem;
+  flex-wrap: wrap;
+  margin-top: 0.85rem;
+  padding: 0.8rem 0.95rem;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.ascii-metrics[hidden] { display: none; }
+
+.ascii-metrics dl {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(135px, 1fr));
+  gap: 0.7rem 1.4rem;
+}
+
+.ascii-metrics dt {
+  margin-bottom: 0.2rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.56rem;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.ascii-metrics dd {
+  margin: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.74rem;
+  color: var(--text);
+}
+
+.ascii-metrics dd .delta { color: var(--primary-light); }
+
+.ascii-plain-toggle {
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
-  padding: 0.3rem 0.7rem;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  color: rgba(255, 255, 255, 0.72);
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 0.66rem;
-  letter-spacing: 1.2px;
-  text-transform: uppercase;
+  font-size: 0.64rem;
+  color: var(--text-muted);
   cursor: pointer;
-  transition: color 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+  white-space: nowrap;
 }
 
-.ascii-source-toggle:hover {
-  color: #fff;
-  border-color: var(--border-hover);
-  background: rgba(255, 255, 255, 0.1);
-}
-
-.ascii-source-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--text-muted);
-  transition: background 0.2s ease, box-shadow 0.2s ease;
-}
-
-.ascii-source-toggle[aria-pressed="true"] .ascii-source-dot {
-  background: var(--primary-light);
-  box-shadow: 0 0 6px var(--primary-light);
-}
+.ascii-plain-toggle input { accent-color: var(--primary); cursor: pointer; }
 
 .video-modal-info {
   padding: 1.1rem 0.25rem 0;
@@ -1168,6 +1289,7 @@ textarea { resize: vertical; }
 
   .services-grid { grid-template-columns: 1fr; }
 
+  .video-modal-stage[data-mode="compare"] { grid-template-columns: 1fr; }
   .portfolio-grid { grid-template-columns: 1fr; }
   .portfolio-card.featured { grid-column: span 1; }
   .portfolio-card.featured .portfolio-video { aspect-ratio: 16 / 9; }

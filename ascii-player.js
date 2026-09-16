@@ -10,8 +10,13 @@
   'use strict';
 
   var CACHE = new Map();
-  var HEX = new Int8Array(128).fill(-1);
-  for (var i = 0; i < 16; i++) HEX['0123456789abcdef'.charCodeAt(i)] = i;
+
+  // Cada celda son dos caracteres base64: nivel de la rampa y entrada de la
+  // paleta (6 bits cada uno). El alfabeto no contiene ',' ni ';', que separan
+  // los segmentos del delta.
+  var ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+  var B64 = new Int8Array(128).fill(0);
+  for (var i = 0; i < 64; i++) B64[ALPHABET.charCodeAt(i)] = i;
 
   var reducedMotion = window.matchMedia
     ? window.matchMedia('(prefers-reduced-motion: reduce)')
@@ -23,7 +28,10 @@
         id,
         fetch('ascii/' + encodeURIComponent(id) + '.json').then(function (res) {
           if (!res.ok) throw new Error('ascii/' + id + '.json → ' + res.status);
-          return res.json();
+          return res.json().then(function (data) {
+            data.url = res.url;
+            return data;
+          });
         })
       );
     }
@@ -35,9 +43,10 @@
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d', { alpha: false });
     this.data = data;
-    this.cells = new Uint8Array(data.cols * data.rows);
+    this.cells = new Uint16Array(data.cols * data.rows);   // nivel<<6 | color
     this.cellAspect = data.cellAspect || 0.6;
     this.background = opts.background || '#000';
+    this.monochrome = !!opts.monochrome;   // "texto plano": un solo color
     this.fit = opts.fit || 'cover';
     this.loop = opts.loop !== false;
     // Frame de portada: el clip queda parado ahí cuando no se reproduce.
@@ -81,9 +90,9 @@
       pos += skip;
 
       while (i < len) {
-        var hi = frame.charCodeAt(i);
-        if (hi === 59) { i++; break; } // ';' cierra el segmento
-        cells[pos++] = (HEX[hi] << 4) | HEX[frame.charCodeAt(i + 1)];
+        var head = frame.charCodeAt(i);
+        if (head === 59) { i++; break; } // ';' cierra el segmento
+        cells[pos++] = (B64[head] << 6) | B64[frame.charCodeAt(i + 1)];
         i += 2;
       }
     }
@@ -172,23 +181,23 @@
 
       while (x < cols) {
         var value = cells[base + x];
-        if (value >> 4 === 0) { x++; continue; }
+        if (value >> 6 === 0) { x++; continue; }
 
         // Agrupamos las celdas contiguas del mismo color en un solo fillText.
         // Los espacios no rompen la tirada: no pintan nada.
-        var color = value & 15;
+        var color = value & 63;
         var start = x;
         var run = '';
         while (x < cols) {
           var cell = cells[base + x];
-          var level = cell >> 4;
+          var level = cell >> 6;
           if (level === 0) { run += ' '; x++; continue; }
-          if ((cell & 15) !== color) break;
+          if ((cell & 63) !== color) break;
           run += ramp[level];
           x++;
         }
 
-        ctx.fillStyle = palette[color];
+        ctx.fillStyle = this.monochrome ? '#d8dee9' : palette[color];
         ctx.fillText(run, start * m.advance, py);
       }
     }
@@ -240,9 +249,27 @@
     }
   };
 
+  AsciiClip.prototype.seekTo = function (index) {
+    var clamped = Math.min(Math.max(index | 0, 0), this.data.frames.length - 1);
+    if (clamped === this.index) return false;
+    this.seek(clamped);
+    this.render();
+    return true;
+  };
+
+  /** Posiciona el clip en el mismo instante que el video original. */
+  AsciiClip.prototype.seekSeconds = function (seconds) {
+    return this.seekTo(Math.round(seconds * this.data.fps));
+  };
+
   AsciiClip.prototype.rewind = function () {
     this.pause();
     this.seek(this.poster);
+    this.render();
+  };
+
+  AsciiClip.prototype.setMonochrome = function (on) {
+    this.monochrome = !!on;
     this.render();
   };
 

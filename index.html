@@ -312,13 +312,32 @@
       <button class="video-modal-close" id="videoModalClose" aria-label="Cerrar">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
-      <div class="video-modal-player">
-        <canvas id="videoModalAscii" class="ascii-canvas" role="img"></canvas>
-        <video id="videoModalPlayer" playsinline controls hidden></video>
+      <div class="ascii-modes" id="asciiModes" role="tablist" aria-label="Representación">
+        <button type="button" role="tab" data-mode="ascii" class="is-active" aria-selected="true">ASCII</button>
+        <button type="button" role="tab" data-mode="compare" aria-selected="false">Comparar</button>
+        <button type="button" role="tab" data-mode="video" aria-selected="false">Video</button>
       </div>
-      <button class="ascii-source-toggle" id="asciiSourceToggle" type="button" aria-pressed="true">
-        <span class="ascii-source-dot"></span><span id="asciiSourceLabel">ASCII</span>
-      </button>
+
+      <div class="video-modal-stage" id="videoModalStage" data-mode="ascii">
+        <figure class="stage-pane stage-pane-video">
+          <figcaption>Video original <span class="stage-meta" id="stageMetaVideo"></span></figcaption>
+          <div class="video-crop">
+            <video id="videoModalPlayer" playsinline controls muted loop preload="none"></video>
+          </div>
+        </figure>
+        <figure class="stage-pane stage-pane-ascii">
+          <figcaption>Reconstrucción ASCII <span class="stage-meta" id="stageMetaAscii"></span></figcaption>
+          <canvas id="videoModalAscii" class="ascii-canvas" role="img"></canvas>
+        </figure>
+      </div>
+
+      <div class="ascii-metrics" id="asciiMetrics" hidden>
+        <dl id="asciiMetricsList"></dl>
+        <label class="ascii-plain-toggle">
+          <input type="checkbox" id="asciiPlainText">
+          <span>Texto plano (sin color)</span>
+        </label>
+      </div>
       <div class="video-modal-info">
         <span class="portfolio-tag" id="videoModalTag"></span>
         <h3 id="videoModalTitle"></h3>

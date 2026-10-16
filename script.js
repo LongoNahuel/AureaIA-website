@@ -521,10 +521,9 @@ function initContactParticles() {
 // Cookie banner
 document.addEventListener('DOMContentLoaded', () => {
   initContactParticles();
-  if (!window.AureaImmersive) {
-    initContactBgParticles();
-    initFooterParticles();
-  }
+  // La red de partículas conectadas de contacto y pie se mantiene también con el fondo 3D
+  initContactBgParticles();
+  initFooterParticles();
 
   const banner = document.getElementById('cookieBanner');
   if (!localStorage.getItem('cookieConsent')) {

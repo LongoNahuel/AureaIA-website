@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="styles.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
 
@@ -148,12 +148,49 @@
         <h2>Casos de Éxito</h2>
         <p>Soluciones de IA aplicadas en escenarios reales.</p>
       </div>
+
+      <!-- Demo: los videos se dibujan con caracteres ASCII (ver ascii-video.js) -->
+      <div class="ascii-panel" id="asciiPanel" hidden>
+        <div class="ascii-panel-head">
+          <span class="badge">Demo en vivo · Render ASCII</span>
+          <p>Estos videos están dibujados con <strong>caracteres ASCII</strong>. Cada cuadro se reconstruye en tu navegador con un shader WebGL: cada letra toma el color y el brillo del píxel original. Bajá la fidelidad para ver los caracteres, activá <strong>Comparar</strong> y pasá el mouse sobre un video, o tocá un caso para ver el video original.</p>
+        </div>
+        <div class="ascii-controls" role="group" aria-label="Ajustes del render ASCII">
+          <div class="ascii-ctl">
+            <label for="asciiCols">Columnas</label>
+            <input type="range" id="asciiCols" min="160" max="720" step="8" value="360">
+            <output id="asciiColsOut" for="asciiCols">360 × 121</output>
+          </div>
+          <div class="ascii-ctl">
+            <label for="asciiFid">Fidelidad</label>
+            <input type="range" id="asciiFid" min="0" max="1" step="0.05" value="0.8">
+            <output id="asciiFidOut" for="asciiFid">80%</output>
+          </div>
+          <div class="ascii-ctl">
+            <label for="asciiCon">Contraste</label>
+            <input type="range" id="asciiCon" min="0.6" max="1.8" step="0.05" value="1">
+            <output id="asciiConOut" for="asciiCon">1.00</output>
+          </div>
+          <div class="ascii-ctl">
+            <span id="asciiColorLbl">Color</span>
+            <div class="ascii-swatches" role="group" aria-labelledby="asciiColorLbl">
+              <button type="button" class="ascii-swatch" data-color="video" aria-label="Color del video" aria-pressed="true"></button>
+              <button type="button" class="ascii-swatch" data-color="#00CCFF" style="--c:#00CCFF" aria-label="Cian" aria-pressed="false"></button>
+              <button type="button" class="ascii-swatch" data-color="#0066FF" style="--c:#0066FF" aria-label="Azul" aria-pressed="false"></button>
+              <button type="button" class="ascii-swatch" data-color="#F5F5F5" style="--c:#F5F5F5" aria-label="Blanco" aria-pressed="false"></button>
+            </div>
+          </div>
+          <label class="ascii-switch"><input type="checkbox" id="asciiCompare"> Comparar con el original</label>
+          <button type="button" class="btn-ghost btn-sm" id="asciiReset">Restablecer</button>
+        </div>
+      </div>
+
       <div class="portfolio-grid">
-        <div class="portfolio-card featured reveal">
+        <div class="portfolio-card featured reveal" data-full="videos/Analítica de robo_urto.mp4.mp4">
           <div class="portfolio-video">
             <div class="portfolio-expand-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg></div>
             <video loop muted playsinline preload="metadata">
-              <source src="videos/Analítica de robo_urto.mp4.mp4" type="video/mp4">
+              <source src="videos/web/analitica-robo.mp4" type="video/mp4">
             </video>
           </div>
           <div class="portfolio-info">
@@ -162,11 +199,11 @@
             <p>Detección de comportamientos sospechosos en tiempo real mediante análisis de vigilancia con IA. Algoritmos de anomalías y reconocimiento de patrones para prevenir robos en espacios comerciales.</p>
           </div>
         </div>
-        <div class="portfolio-card reveal">
+        <div class="portfolio-card reveal" data-full="videos/ChatBot.mp4.mp4">
           <div class="portfolio-video">
             <div class="portfolio-expand-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg></div>
             <video loop muted playsinline preload="metadata">
-              <source src="videos/ChatBot.mp4.mp4" type="video/mp4">
+              <source src="videos/web/chatbot.mp4" type="video/mp4">
             </video>
           </div>
           <div class="portfolio-info">
@@ -175,11 +212,11 @@
             <p>Asistente conversacional que comprende lenguaje natural y automatiza atención al cliente 24/7.</p>
           </div>
         </div>
-        <div class="portfolio-card reveal">
+        <div class="portfolio-card reveal" data-full="videos/Detección de celulares.mp4.mp4">
           <div class="portfolio-video">
             <div class="portfolio-expand-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg></div>
             <video loop muted playsinline preload="metadata">
-              <source src="videos/Detección de celulares.mp4.mp4" type="video/mp4">
+              <source src="videos/web/deteccion-celulares.mp4" type="video/mp4">
             </video>
           </div>
           <div class="portfolio-info">
@@ -188,11 +225,11 @@
             <p>Identificación automática del uso de teléfonos en entornos controlados para mejorar productividad.</p>
           </div>
         </div>
-        <div class="portfolio-card reveal">
+        <div class="portfolio-card reveal" data-full="videos/Detección de manos.mp4.mp4">
           <div class="portfolio-video">
             <div class="portfolio-expand-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg></div>
             <video loop muted playsinline preload="metadata">
-              <source src="videos/Detección de manos.mp4.mp4" type="video/mp4">
+              <source src="videos/web/deteccion-manos.mp4" type="video/mp4">
             </video>
           </div>
           <div class="portfolio-info">
@@ -201,11 +238,11 @@
             <p>Tracking de movimientos en 3D con 21 landmarks para interfaces gestuales e interacciones sin contacto.</p>
           </div>
         </div>
-        <div class="portfolio-card reveal">
+        <div class="portfolio-card reveal" data-full="videos/Detección de mirada.mp4.mp4">
           <div class="portfolio-video">
             <div class="portfolio-expand-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg></div>
             <video loop muted playsinline preload="metadata">
-              <source src="videos/Detección de mirada.mp4.mp4" type="video/mp4">
+              <source src="videos/web/deteccion-mirada.mp4" type="video/mp4">
             </video>
           </div>
           <div class="portfolio-info">
@@ -319,6 +356,7 @@
         <span class="portfolio-tag" id="videoModalTag"></span>
         <h3 id="videoModalTitle"></h3>
         <p id="videoModalDesc"></p>
+        <p class="video-modal-note">Video original, sin render ASCII.</p>
       </div>
     </div>
   </div>
@@ -345,6 +383,7 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/particles.js/2.0.0/particles.min.js"></script>
+  <script src="ascii-video.js"></script>
   <script src="script.js"></script>
 </body>
 </html>

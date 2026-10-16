@@ -227,15 +227,20 @@ document.querySelectorAll('a[href^="#"]').forEach(anchor => {
 })();
 
 // Portfolio videos — play on hover (desktop)
+// Las tarjetas con render ASCII (ascii-video.js) se reproducen solas mientras están en pantalla.
 const isTouchDevice = window.matchMedia('(hover: none)').matches;
+const usesAscii = card => card.classList.contains('ascii-active');
 
 document.querySelectorAll('.portfolio-card').forEach(card => {
   const video = card.querySelector('video');
   if (!video) return;
 
   if (!isTouchDevice) {
-    card.addEventListener('mouseenter', () => video.play().catch(() => {}));
+    card.addEventListener('mouseenter', () => {
+      if (!usesAscii(card)) video.play().catch(() => {});
+    });
     card.addEventListener('mouseleave', () => {
+      if (usesAscii(card)) return;
       video.pause();
       video.currentTime = 0;
     });
@@ -247,7 +252,7 @@ if (isTouchDevice) {
   const videoObserver = new IntersectionObserver((entries) => {
     entries.forEach(entry => {
       const video = entry.target.querySelector('video');
-      if (!video) return;
+      if (!video || usesAscii(entry.target)) return;
       if (entry.isIntersecting) video.play().catch(() => {});
       else { video.pause(); video.currentTime = 0; }
     });
@@ -472,8 +477,10 @@ function initContactParticles() {
   function openModal(card) {
     const cardVideo = card.querySelector('video');
     if (cardVideo) { cardVideo.pause(); cardVideo.currentTime = 0; }
+    window.AureaAscii?.pause();
 
-    const src = card.querySelector('video source')?.src || cardVideo?.currentSrc || '';
+    // El lightbox muestra el video original completo (data-full), no la versión liviana
+    const src = card.dataset.full || card.querySelector('video source')?.src || cardVideo?.currentSrc || '';
     const tag = card.querySelector('.portfolio-tag')?.textContent || '';
     const title = card.querySelector('h3')?.textContent || '';
     const desc = card.querySelector('p')?.textContent || '';
@@ -494,6 +501,7 @@ function initContactParticles() {
     document.body.style.overflow = '';
     player.pause();
     player.src = '';
+    window.AureaAscii?.resume();
   }
 
   document.querySelectorAll('.portfolio-card').forEach(card => {

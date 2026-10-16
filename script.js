@@ -229,41 +229,6 @@ document.querySelectorAll('a[href^="#"]').forEach(anchor => {
   });
 })();
 
-// Portfolio videos — play on hover (desktop)
-// Las tarjetas con render ASCII (ascii-video.js) se reproducen solas mientras están en pantalla.
-const isTouchDevice = window.matchMedia('(hover: none)').matches;
-const usesAscii = card => card.classList.contains('ascii-active');
-
-document.querySelectorAll('.portfolio-card').forEach(card => {
-  const video = card.querySelector('video');
-  if (!video) return;
-
-  if (!isTouchDevice) {
-    card.addEventListener('mouseenter', () => {
-      if (!usesAscii(card)) video.play().catch(() => {});
-    });
-    card.addEventListener('mouseleave', () => {
-      if (usesAscii(card)) return;
-      video.pause();
-      video.currentTime = 0;
-    });
-  }
-});
-
-// Portfolio videos — play when in view (mobile / touch)
-if (isTouchDevice) {
-  const videoObserver = new IntersectionObserver((entries) => {
-    entries.forEach(entry => {
-      const video = entry.target.querySelector('video');
-      if (!video || usesAscii(entry.target)) return;
-      if (entry.isIntersecting) video.play().catch(() => {});
-      else { video.pause(); video.currentTime = 0; }
-    });
-  }, { threshold: 0.5 });
-
-  document.querySelectorAll('.portfolio-card').forEach(card => videoObserver.observe(card));
-}
-
 // Contact form → WhatsApp
 const contactForm = document.getElementById('contactForm');
 if (contactForm) {
@@ -476,14 +441,12 @@ function initContactParticles() {
   const backdrop = document.getElementById('videoModalBackdrop');
 
   if (!modal) return;
+  let origen = null; // la tarjeta que abrió el video, para devolverle el foco
 
   function openModal(card) {
-    const cardVideo = card.querySelector('video');
-    if (cardVideo) { cardVideo.pause(); cardVideo.currentTime = 0; }
-    window.AureaAscii?.pause();
-
-    // El lightbox muestra el video original completo (data-full), no la versión liviana
-    const src = card.dataset.full || card.querySelector('video source')?.src || cardVideo?.currentSrc || '';
+    // Las tarjetas son capturas fijas: el video original (data-full) solo se ve en el lightbox
+    const src = card.dataset.full || '';
+    if (!src) return;
     const tag = card.querySelector('.portfolio-tag')?.textContent || '';
     const title = card.querySelector('h3')?.textContent || '';
     const desc = card.querySelector('p')?.textContent || '';
@@ -494,21 +457,28 @@ function initContactParticles() {
     titleEl.textContent = title;
     descEl.textContent = desc;
 
+    origen = card;
     modal.classList.add('show');
     document.body.style.overflow = 'hidden';
     player.play().catch(() => {});
+    closeBtn.focus({ preventScroll: true });
   }
 
   function closeModal() {
+    if (!modal.classList.contains('show')) return;
     modal.classList.remove('show');
     document.body.style.overflow = '';
     player.pause();
-    player.src = '';
-    window.AureaAscii?.resume();
+    player.removeAttribute('src');
+    player.load();
+    origen?.focus({ preventScroll: true });
   }
 
   document.querySelectorAll('.portfolio-card').forEach(card => {
     card.addEventListener('click', () => openModal(card));
+    card.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openModal(card); }
+    });
   });
 
   closeBtn.addEventListener('click', closeModal);

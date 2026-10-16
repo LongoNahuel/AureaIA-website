@@ -18,15 +18,20 @@
                                        de 16) se ordena por dígito
 
    Pesos, activaciones, gradientes, pérdida y precisión son los de la red.
-   Three.js con bloom (UnrealBloomPass) y niebla. Sin WebGL, el sitio usa
-   particles.js como antes.
+   La escena no tiene textos: todo se lee por forma, color y movimiento (los
+   números viven en la franja de telemetría debajo del menú).
+
+   Resolución: hasta 2× la densidad de píxeles de la pantalla (MSAA ×4 en el
+   compositor cuando la pantalla es de densidad 1–1,5) y escala adaptativa:
+   baja la resolución si el equipo no llega a ~45 fps. Three.js con bloom (UnrealBloomPass) y niebla. Sin WebGL, el
+   sitio usa particles.js como antes.
    ========================================================================== */
 import * as THREE from 'three';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
-import { crearDatos, crearRed, crearEntrenador, pca3, N, NC, NCONV, NPOOL, NIN, NH1, NH2, NOUT } from './fondo/red.js';
+import { crearDatos, crearRed, crearEntrenador, pca3, trazosDeformados, N, NC, NCONV, NPOOL, NIN, NH1, NH2, NOUT } from './fondo/red.js';
 
 const ETAPAS = [
   { id: 'inicio', nombre: 'Datos' },
@@ -38,7 +43,11 @@ const ETAPAS = [
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 const coarse = window.matchMedia('(pointer: coarse)').matches;
 const compacto = coarse || Math.min(window.innerWidth, window.innerHeight) < 700;
-const Q = compacto ? { puntos: 9000, niebla: 0.0065 } : { puntos: 26000, niebla: 0.0055 };
+// más puntos y más finos que antes: el cerebro se ve definido a 2× sin ganar brillo
+const Q = compacto ? { puntos: 14000, tam: 0.54, niebla: 0.0065 } : { puntos: 42000, tam: 0.47, niebla: 0.0055 };
+const PR_MAX = Math.min(window.devicePixelRatio || 1, 2);
+const PR_MIN = Math.min(PR_MAX, 1);
+const TESELA = 40; // px de cada dígito en el atlas de la galaxia (los datos de la red siguen en 14×14)
 
 const FONDO = 0x0a0a0a;
 const CIAN = new THREE.Color(0x00ccff);
@@ -153,7 +162,7 @@ const cerebroVS = /* glsl */`
 attribute vec3 aT;
 attribute vec3 aSeed;
 attribute float aFold;
-uniform float uTime, uCompose, uPixel, uSize, uOpacity, uFog, uWaveZ, uWaveOn;
+uniform float uTime, uCompose, uPixel, uSize, uOpacity, uFog, uWaveZ, uWaveOn, uGan;
 uniform vec3 uWaveColor;
 varying vec3 vColor;
 varying float vAlpha;
@@ -172,7 +181,7 @@ void main() {
   gl_PointSize = uSize * uPixel * (0.6 + lum * 0.8 + onda * 1.2) * (300.0 / depth);
   vec3 c = mix(vec3(0.0, 0.4, 1.0), vec3(0.0, 0.8, 1.0), clamp(aFold * 0.8 + aSeed.y * 0.2, 0.0, 1.0));
   vColor = mix(c, uWaveColor, clamp(onda, 0.0, 1.0));
-  vAlpha = (0.14 + lum * 0.5 + onda * 0.6) * mix(0.45, 1.0, t) * uOpacity
+  vAlpha = (0.14 + lum * 0.5 + onda * 0.6) * mix(0.45, 1.0, t) * uOpacity * uGan
          * exp(-pow(uFog * depth, 2.0)) * smoothstep(4.0, 16.0, depth);
 }`;
 const suaveFS = /* glsl */`
@@ -265,7 +274,7 @@ varying vec2 vTile;
 varying float vAlpha;
 varying float vSel;
 void main() {
-  vec2 uv = (vTile * 14.0 + gl_PointCoord * 14.0) / vec2(350.0, 280.0);
+  vec2 uv = (vTile + gl_PointCoord) / vec2(25.0, 20.0);
   float v = texture2D(uAtlas, uv).r;
   vec2 q = abs(gl_PointCoord * 2.0 - 1.0);
   float borde = step(0.9, max(q.x, q.y)) * (0.25 + 0.75 * vSel);
@@ -275,48 +284,31 @@ void main() {
   gl_FragColor = vec4(c, a);
 }`;
 
-// ---------- Etiquetas de texto en 3D ----------
-function crearEtiqueta(alto = 1, ancho = 512, altoPx = 96) {
+// ---------- Lienzos 2D dentro de la escena (solo gráficos, sin texto) ----------
+// Se dibujan a 2× para que sigan nítidos en pantallas de alta densidad.
+function crearLienzo(ancho, alto, escala = 2) {
   const c = document.createElement('canvas');
-  c.width = ancho; c.height = altoPx;
+  c.width = ancho * escala; c.height = alto * escala;
+  const g = c.getContext('2d');
+  g.setTransform(escala, 0, 0, escala, 0, 0);
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.anisotropy = 4;
-  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, opacity: 0, fog: false }));
-  s.userData = { c, tex, texto: null };
-  s.scale.set(alto * ancho / altoPx, alto, 1);
-  return s;
-}
-function escribir(sprite, lineas, { color = '#e8f6ff', fuente = '500 40px "IBM Plex Mono", Consolas, monospace', alinear = 'left' } = {}) {
-  const u = sprite.userData, txt = [].concat(lineas), clave = txt.join('|') + color;
-  if (u.texto === clave) return;
-  u.texto = clave;
-  const g = u.c.getContext('2d'), W = u.c.width, H = u.c.height;
-  g.clearRect(0, 0, W, H);
-  g.font = fuente;
-  g.textBaseline = 'middle';
-  g.textAlign = alinear;
-  g.shadowColor = 'rgba(0, 204, 255, 0.5)';
-  g.shadowBlur = 12;
-  const x = alinear === 'center' ? W / 2 : 8;
-  txt.forEach((t, i) => {
-    g.fillStyle = i === 0 ? color : 'rgba(232, 246, 255, 0.75)';
-    g.fillText(t, x, H / (txt.length + 1) * (i + 1));
-  });
-  u.tex.needsUpdate = true;
+  return { c, g, tex, ancho, alto };
 }
 
 // ---------- Escena ----------
 function iniciar() {
   let renderer;
   try {
-    renderer = new THREE.WebGLRenderer({ antialias: !compacto, powerPreference: 'high-performance' });
+    // en escritorio el antialias lo hace el compositor (MSAA ×4); en celulares, el canvas
+    renderer = new THREE.WebGLRenderer({ antialias: compacto, powerPreference: 'high-performance' });
   } catch (_) {
     return false;
   }
   if (!renderer.getContext()) return false;
 
-  const pr = Math.min(window.devicePixelRatio || 1, compacto ? 1.25 : 1.5);
+  let pr = PR_MAX;
   renderer.setPixelRatio(pr);
   renderer.setSize(window.innerWidth, window.innerHeight, false);
   const canvas = renderer.domElement;
@@ -333,7 +325,10 @@ function iniciar() {
 
   let composer = null;
   if (!compacto) {
-    composer = new EffectComposer(renderer);
+    // MSAA ×4 en pantallas de densidad 1–1,5; a 2× las líneas ya salen finas y el MSAA costaría demasiada memoria
+    const muestras = renderer.capabilities.isWebGL2 && PR_MAX < 1.75 ? 4 : 0;
+    const rt = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: muestras });
+    composer = new EffectComposer(renderer, rt);
     composer.setPixelRatio(pr);
     composer.setSize(window.innerWidth, window.innerHeight);
     composer.addPass(new RenderPass(scene, camera));
@@ -362,8 +357,9 @@ function iniciar() {
   gc.setAttribute('aFold', new THREE.BufferAttribute(F, 1));
   gc.boundingSphere = new THREE.Sphere(V(0, 0, 0), 400);
   const uCerebro = {
-    uTime: { value: 0 }, uCompose: { value: 0 }, uPixel: { value: pr }, uSize: { value: compacto ? 0.62 : 0.55 },
+    uTime: { value: 0 }, uCompose: { value: 0 }, uPixel: { value: pr }, uSize: { value: Q.tam },
     uOpacity: { value: 0 }, uFog: { value: Q.niebla }, uWaveZ: { value: 0 }, uWaveOn: { value: 0 }, uWaveColor: { value: CIAN.clone() },
+    uGan: { value: 0.85 }, // compensa el brillo de tener más puntos
   };
   scene.add(new THREE.Points(gc, new THREE.ShaderMaterial({
     uniforms: uCerebro, vertexShader: cerebroVS, fragmentShader: suaveFS,
@@ -371,17 +367,29 @@ function iniciar() {
   })));
 
   // ---------- Galaxia de 500 ejemplos ----------
-  const atlas = new Uint8Array(350 * 280 * 4);
-  datos.X.forEach((img, k) => {
-    const tx = k % 25, ty = Math.floor(k / 25);
-    for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
-      const o = ((ty * 14 + j) * 350 + tx * 14 + i) * 4;
-      atlas[o] = img[j * N + i] * 255; atlas[o + 3] = 255;
-    }
-  });
-  const atlasTex = new THREE.DataTexture(atlas, 350, 280, THREE.RGBAFormat);
-  atlasTex.magFilter = THREE.NearestFilter;
-  atlasTex.needsUpdate = true;
+  // Atlas de 25×20 dígitos redibujados en alta resolución con los mismos trazos
+  // y la misma deformación que el ejemplo de 14×14 con el que entrena la red.
+  const atlasCanvas = document.createElement('canvas');
+  atlasCanvas.width = 25 * TESELA; atlasCanvas.height = 20 * TESELA;
+  (() => {
+    const g = atlasCanvas.getContext('2d');
+    g.fillStyle = '#000'; g.fillRect(0, 0, atlasCanvas.width, atlasCanvas.height);
+    g.strokeStyle = '#fff'; g.lineCap = 'round'; g.lineJoin = 'round';
+    datos.X.forEach((_, k) => {
+      const x0 = (k % 25) * TESELA, y0 = Math.floor(k / 25) * TESELA, def = datos.D[k];
+      g.lineWidth = (def.ancho + 1.2 / N) * TESELA; // el 14×14 suaviza ~1 píxel de borde
+      for (const trazo of trazosDeformados(datos.Y[k], def)) {
+        g.beginPath();
+        trazo.forEach(([x, y], i) => (i ? g.lineTo : g.moveTo).call(g, x0 + x * TESELA, y0 + y * TESELA));
+        g.stroke();
+      }
+    });
+  })();
+  const atlasTex = new THREE.CanvasTexture(atlasCanvas);
+  atlasTex.flipY = false;
+  atlasTex.minFilter = THREE.LinearMipmapLinearFilter;
+  atlasTex.magFilter = THREE.LinearFilter;
+  atlasTex.anisotropy = 4;
   const nG = datos.X.length;
   const galPos = new Float32Array(nG * 3), galBase = [];
   for (let k = 0; k < nG; k++) { // galaxia espiral de dos brazos frente al cerebro
@@ -452,44 +460,26 @@ function iniciar() {
   kernel.frustumCulled = false;
   scene.add(kernel);
 
-  // ---------- Salida: barras del softmax, dígitos y pérdida ----------
+  // ---------- Salida: barras del softmax y el objetivo ----------
   const barras = new THREE.InstancedMesh(new THREE.BoxGeometry(0.55, 1, 0.12), new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false, toneMapped: false }), NOUT);
   barras.frustumCulled = false;
   for (let k = 0; k < NOUT; k++) barras.setColorAt(k, CIAN);
   scene.add(barras);
-  const etiquetasDig = por.out.pos.map((p, k) => {
-    const s = crearEtiqueta(0.8, 96, 96);
-    escribir(s, String(k), { fuente: '600 64px "Inter", -apple-system, sans-serif', alinear: 'center' });
-    s.position.set(p.x, p.y - 1.25, p.z);
-    scene.add(s);
-    return s;
-  });
-  const perdidaSprite = crearEtiqueta(2.2, 1024, 192);
-  perdidaSprite.position.set(0, 7, Z.perdida);
-  scene.add(perdidaSprite);
+  // el objetivo (one-hot) como una caja vacía de altura máxima: lo que le falta a la barra para llenarla es la pérdida
+  const objetivoMat = new THREE.LineBasicMaterial({ color: BLANCO, transparent: true, opacity: 0, depthWrite: false, fog: false });
+  const objetivo = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(0.75, 6, 0.2)), objetivoMat);
+  objetivo.frustumCulled = false;
+  scene.add(objetivo);
 
-  // ---------- Nombres de las capas ----------
-  const nombresCapa = [
-    ['in', 'entrada', `${N}×${N} píxeles`, V(-6.2, 7.3, Z.in)],
-    ['conv', 'convolución', `${NC} filtros 3×3 · ReLU`, V(-6.8, 7.4, Z.conv)],
-    ['pool', 'max pooling 2×2', `${NC}×${NPOOL}×${NPOOL} = ${NIN}`, V(-6.8, 7.4, Z.pool)],
-    ['h1', 'densa', `${NH1} neuronas · ReLU`, V(-6.4, 4.2, Z.h1)],
-    ['h2', 'densa · embedding', `${NH2} neuronas · ReLU`, V(-4.4, 5.0, Z.h2)],
-    ['out', 'softmax', `${NOUT} clases`, V(-6.8, 4.0, Z.out)],
-  ].map(([id, t1, t2, p]) => {
-    const s = crearEtiqueta(1.1);
-    escribir(s, [t1, t2], { color: '#00ccff', fuente: '500 34px "IBM Plex Mono", Consolas, monospace' });
-    s.position.copy(p);
-    s.center.set(0, 0.5);
-    scene.add(s);
-    return s;
-  });
-  const filtrosSprite = crearEtiqueta(2.2, 384, 96); // los 4 filtros aprendidos
+  // ---------- Los 4 filtros 3×3 aprendidos, junto a la capa de convolución ----------
+  const filtros = crearLienzo(384, 96);
+  const filtrosSprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: filtros.tex, transparent: true, depthWrite: false, opacity: 0, fog: false }));
+  filtrosSprite.scale.set(2.2 * 4, 2.2, 1);
   filtrosSprite.position.set(7.2, 7.4, Z.conv);
   filtrosSprite.center.set(1, 0.5);
   scene.add(filtrosSprite);
   function dibujarFiltros() {
-    const { c, tex } = filtrosSprite.userData, g = c.getContext('2d');
+    const { g, tex } = filtros;
     g.clearRect(0, 0, 384, 96);
     const K = red.P.K, m = maxAbs(K);
     for (let f = 0; f < NC; f++) for (let i = 0; i < 9; i++) {
@@ -515,79 +505,52 @@ function iniciar() {
   glat.boundingSphere = new THREE.Sphere(C_LAT, 30);
   const latMat = new THREE.PointsMaterial({ size: 0.55, vertexColors: true, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, sizeAttenuation: true, fog: false });
   scene.add(new THREE.Points(glat, latMat));
-  const etiquetasLat = Array.from({ length: 10 }, (_, d) => {
-    const s = crearEtiqueta(1.1, 96, 96);
-    escribir(s, String(d), { color: '#' + tono(d).getHexString(), fuente: '700 64px "Inter", -apple-system, sans-serif', alinear: 'center' });
-    s.position.copy(C_LAT);
-    scene.add(s);
-    return s;
-  });
-  const latTitulo = crearEtiqueta(1.2);
-  escribir(latTitulo, ['espacio latente', 'capa de 16 → PCA 3D'], { color: '#00ccff', fuente: '500 34px "IBM Plex Mono", Consolas, monospace' });
-  latTitulo.position.set(C_LAT.x - 8, C_LAT.y + 8, C_LAT.z);
-  latTitulo.center.set(0, 0.5);
-  scene.add(latTitulo);
+  // cada dígito es un color: a medida que la red aprende, los colores se agrupan
   function actualizarLatente() {
     const P3 = pca3(datos.X.slice(0, nLat).map(x => red.forward(x).a2));
     let m = 1e-6;
     for (const p of P3) m = Math.max(m, Math.hypot(...p));
-    const cent = Array.from({ length: 10 }, () => [0, 0, 0, 0]);
-    P3.forEach((p, k) => {
-      const q = [C_LAT.x + p[0] / m * 9, C_LAT.y + p[1] / m * 7, C_LAT.z + p[2] / m * 7];
-      latObj.set(q, k * 3);
-      const c = cent[datos.Y[k]]; c[0] += q[0]; c[1] += q[1]; c[2] += q[2]; c[3]++;
-    });
-    cent.forEach((c, d) => etiquetasLat[d].userData.destino = V(c[0] / c[3], c[1] / c[3] + 0.9, c[2] / c[3]));
+    P3.forEach((p, k) => latObj.set([C_LAT.x + p[0] / m * 9, C_LAT.y + p[1] / m * 7, C_LAT.z + p[2] / m * 7], k * 3));
   }
 
   // ---------- Panel de entrenamiento (pegado a la cámara) ----------
+  // Solo gráficos: precisión (barra), curva de pérdida y las últimas predicciones
+  // (borde cian = acierto, violeta = error). Los números están en la telemetría.
   const panel = (() => {
-    const c = document.createElement('canvas');
-    c.width = 360; c.height = 300;
-    const tex = new THREE.CanvasTexture(c);
-    tex.colorSpace = THREE.SRGBColorSpace;
-    const m = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 1), new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: 0, depthWrite: false, depthTest: false, fog: false }));
+    const l = crearLienzo(360, 300);
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 1), new THREE.MeshBasicMaterial({ map: l.tex, transparent: true, opacity: 0, depthWrite: false, depthTest: false, fog: false }));
     m.renderOrder = 10;
     camera.add(m);
-    return { c, tex, m, t: 0 };
+    return { ...l, m, t: 0 };
   })();
   function dibujarPanel() {
-    const g = panel.c.getContext('2d'), W = 360, H = 300;
+    const g = panel.g, W = 360, H = 300;
     g.clearRect(0, 0, W, H);
     g.fillStyle = 'rgba(10, 12, 18, 0.55)'; g.fillRect(0, 0, W, H);
     g.strokeStyle = 'rgba(0, 204, 255, 0.5)'; g.lineWidth = 1; g.strokeRect(0.5, 0.5, W - 1, H - 1);
-    g.font = '500 15px "IBM Plex Mono", Consolas, monospace'; g.textBaseline = 'middle';
-    g.fillStyle = 'rgba(232, 246, 255, 0.9)';
-    g.fillText(`época ${num(entrenador.epoca, 1)} · lote 16 · Adam`, 12, 18);
-    g.fillStyle = '#00ccff';
-    g.fillText(`precisión ${Math.round(metrica.acc * 100)}%   pérdida ${num(metrica.loss, 3)}`, 12, 40);
+    // precisión
+    g.fillStyle = 'rgba(255, 255, 255, 0.08)'; g.fillRect(14, 16, W - 28, 6);
+    g.fillStyle = '#00ccff'; g.fillRect(14, 16, (W - 28) * metrica.acc, 6);
     // curva de pérdida
-    const cx = 12, cy = 58, cw = W - 24, ch = 110, h = historial, mx = Math.max(...h, 0.01);
-    g.strokeStyle = 'rgba(255, 255, 255, 0.08)';
-    for (let i = 0; i <= 2; i++) { g.beginPath(); g.moveTo(cx, cy + ch * i / 2); g.lineTo(cx + cw, cy + ch * i / 2); g.stroke(); }
-    g.strokeStyle = '#00ccff'; g.lineWidth = 2; g.beginPath();
-    h.forEach((v, i) => { const x = cx + i / Math.max(1, h.length - 1) * cw, y = cy + ch - v / mx * ch; i ? g.lineTo(x, y) : g.moveTo(x, y); });
-    g.stroke();
-    g.fillStyle = 'rgba(232, 246, 255, 0.55)'; g.font = '500 12px "IBM Plex Mono", Consolas, monospace';
-    g.fillText('pérdida por paso', cx, cy + ch + 12);
-    // últimas predicciones
-    const y0 = 200, tam = 40;
+    const cx = 14, cy = 40, cw = W - 28, ch = 140, h = historial, mx = Math.max(...h, 0.01);
+    g.strokeStyle = 'rgba(255, 255, 255, 0.08)'; g.lineWidth = 1;
+    for (let i = 0; i <= 3; i++) { g.beginPath(); g.moveTo(cx, cy + ch * i / 3); g.lineTo(cx + cw, cy + ch * i / 3); g.stroke(); }
+    const curva = () => { g.beginPath(); h.forEach((v, i) => { const x = cx + i / Math.max(1, h.length - 1) * cw, y = cy + ch - v / mx * ch; i ? g.lineTo(x, y) : g.moveTo(x, y); }); };
+    curva(); g.lineTo(cx + cw, cy + ch); g.lineTo(cx, cy + ch); g.closePath();
+    g.fillStyle = 'rgba(0, 204, 255, 0.1)'; g.fill();
+    curva(); g.strokeStyle = '#00ccff'; g.lineWidth = 1.6; g.lineJoin = 'round'; g.stroke();
+    // últimas predicciones, dibujadas desde el atlas en alta resolución
+    const y0 = 208, tam = 38, paso = (W - 28 - tam) / 7;
     recientes.slice(-8).forEach((r, i) => {
-      const x0 = 12 + i * 43, img = datos.X[r.k];
-      for (let j = 0; j < N; j++) for (let q = 0; q < N; q++) {
-        const v = img[j * N + q];
-        if (v < 0.05) continue;
-        g.fillStyle = `rgba(200, 235, 255, ${v})`;
-        g.fillRect(x0 + q * tam / N, y0 + j * tam / N, tam / N + 0.3, tam / N + 0.3);
-      }
-      g.strokeStyle = r.ok ? 'rgba(0, 204, 255, 0.8)' : 'rgba(140, 115, 255, 0.9)';
-      g.strokeRect(x0 + 0.5, y0 + 0.5, tam, tam);
+      const x0 = 14 + i * paso;
+      g.globalCompositeOperation = 'lighter'; // el fondo negro del atlas no tapa el panel
+      g.drawImage(atlasCanvas, (r.k % 25) * TESELA, Math.floor(r.k / 25) * TESELA, TESELA, TESELA, x0, y0, tam, tam);
+      g.globalCompositeOperation = 'source-over';
+      g.strokeStyle = r.ok ? 'rgba(0, 204, 255, 0.85)' : 'rgba(150, 125, 255, 0.95)';
+      g.lineWidth = 1.2; g.strokeRect(x0 + 0.5, y0 + 0.5, tam - 1, tam - 1);
       g.fillStyle = r.ok ? '#00ccff' : '#a796ff';
-      g.font = '600 15px "IBM Plex Mono", Consolas, monospace';
-      g.fillText(`→${r.pred}`, x0 + 6, y0 + tam + 16);
+      g.beginPath(); g.arc(x0 + tam / 2, y0 + tam + 14, 3, 0, Math.PI * 2); g.fill();
     });
-    g.fillStyle = 'rgba(232, 246, 255, 0.55)'; g.font = '500 12px "IBM Plex Mono", Consolas, monospace';
-    g.fillText('predicciones del último lote', 12, H - 12);
     panel.tex.needsUpdate = true;
   }
 
@@ -636,8 +599,8 @@ function iniciar() {
     });
     barras.instanceMatrix.needsUpdate = true;
     barras.instanceColor.needsUpdate = true;
-    escribir(perdidaSprite, [`pérdida ${num(b.loss)}`, `objetivo ${estado.y} → predijo ${estado.pred}`],
-      { color: estado.pred === estado.y ? '#00ccff' : '#b7a8ff', fuente: '600 56px "IBM Plex Mono", Consolas, monospace', alinear: 'center' });
+    const po = por.out.pos[estado.y];
+    objetivo.position.set(po.x, po.y + 0.9 + 3, po.z);
     dibujarFiltros();
     sucio = false;
   }
@@ -693,6 +656,26 @@ function iniciar() {
   }, { passive: true });
   document.addEventListener('pointerleave', () => mouseT.set(0, 0));
 
+  // resolución adaptativa: arranca a 2× (o la densidad de la pantalla) y baja de a 0,25 si no llega a ~45 fps
+  const calidad = { muestras: 0, suma: 0, calentar: 90, cambios: 0 };
+  function aplicarPR(p) {
+    pr = p;
+    renderer.setPixelRatio(p);
+    if (composer) { composer.setPixelRatio(p); composer.setSize(window.innerWidth, window.innerHeight); }
+    uCerebro.uPixel.value = uRed.uPixel.value = uGal.uPixel.value = p;
+    window.AureaImmersive && (window.AureaImmersive.resolucion = p);
+  }
+  function medirCalidad(ms) {
+    if (calidad.calentar > 0) { calidad.calentar--; return; }   // compilación de shaders y carga
+    if (ms > 250) return;                                        // pestaña en segundo plano
+    calidad.suma += ms; calidad.muestras++;
+    if (calidad.muestras < 60) return;
+    const prom = calidad.suma / calidad.muestras;
+    calidad.suma = calidad.muestras = 0;
+    if (prom > 22 && pr > PR_MIN + 0.01) { aplicarPR(Math.max(PR_MIN, pr - 0.25)); calidad.cambios++; calidad.calentar = 20; }
+    else if (prom < 12 && pr < PR_MAX - 0.01 && calidad.cambios < 6) { aplicarPR(Math.min(PR_MAX, pr + 0.25)); calidad.cambios++; calidad.calentar = 20; }
+  }
+
   window.addEventListener('resize', () => {
     const w = window.innerWidth, h = window.innerHeight;
     renderer.setSize(w, h, false);
@@ -716,6 +699,7 @@ function iniciar() {
 
   function frame(now) {
     requestAnimationFrame(frame);
+    const ms = now - tPrev;
     const dt = Math.min(0.05, (now - tPrev) / 1000);
     const dtr = Math.min(0.25, (now - tPrev) / 1000);
     tPrev = now;
@@ -794,18 +778,9 @@ function iniciar() {
     const conv = smooth(1.05, 1.2, s) * (1 - smooth(1.55, 1.7, s));
     kernelMat.opacity = conv;
     barras.material.opacity = smooth(1.85, 2.05, s) * (1 - smooth(2.3, 2.45, s)) + smooth(3.2, 3.5, s) * 0.55;
-    etiquetasDig.forEach(e => { e.material.opacity = barras.material.opacity; });
-    perdidaSprite.material.opacity = smooth(1.95, 2.1, s) * (1 - smooth(2.28, 2.4, s));
-    const vNombres = smooth(1.0, 1.2, s) * (1 - smooth(3.1, 3.3, s));
-    nombresCapa.forEach(e => { e.material.opacity = vNombres; });
-    filtrosSprite.material.opacity = vNombres;
-    const vLat = latListo ? smooth(3.1, 3.4, s) : 0;
-    latMat.opacity = vLat;
-    latTitulo.material.opacity = vLat;
-    etiquetasLat.forEach(e => {
-      e.material.opacity = vLat;
-      if (e.userData.destino) e.position.lerp(e.userData.destino, 1 - Math.exp(-dt * 3));
-    });
+    objetivoMat.opacity = smooth(1.95, 2.1, s) * (1 - smooth(2.3, 2.42, s)) * 0.8 + smooth(3.2, 3.5, s) * 0.3;
+    filtrosSprite.material.opacity = smooth(1.0, 1.2, s) * (1 - smooth(1.6, 1.8, s));
+    latMat.opacity = latListo ? smooth(3.1, 3.4, s) : 0;
     const lp = glat.attributes.position.array;
     for (let i = 0; i < lp.length; i++) lp[i] += (latObj[i] - lp[i]) * (1 - Math.exp(-dt * 3));
     glat.attributes.position.needsUpdate = true;
@@ -880,6 +855,7 @@ function iniciar() {
     camera.rotateZ(clamp((rutaCam.getPoint(Math.min(1, u + 0.01)).x - pos.x) * 0.01, -0.05, 0.05));
 
     if (composer) composer.render(); else renderer.render(scene, camera);
+    if (!reduceMotion) medirCalidad(ms);
 
     // ---- telemetría ----
     hudT += dt;
@@ -1017,7 +993,7 @@ function iniciarCursor() {
 // ---------- Arranque ----------
 const saveData = navigator.connection && navigator.connection.saveData;
 if (!saveData && iniciar()) {
-  window.AureaImmersive = { activo: true };
+  window.AureaImmersive = { activo: true, resolucion: PR_MAX };
   document.documentElement.classList.add('immersive');
   iniciarCursor();
 }

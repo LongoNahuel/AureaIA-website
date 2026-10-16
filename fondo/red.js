@@ -49,19 +49,32 @@ const TRAZOS = {
   9: () => [[...elipse(0.5, 0.36, 0.19, 0.16, 0, Math.PI * 2), [0.69, 0.36], [0.6, 0.85]]],
 };
 
-// rasteriza los trazos con una deformación al azar (rotación, escala, inclinación, corrimiento y grosor)
-export function dibujar(d, rnd) {
+// deformación al azar de un ejemplo: rotación, escala, inclinación, corrimiento y grosor del trazo
+export function deformacion(rnd) {
   const rot = (rnd() - 0.5) * 0.5, esc = 0.84 + rnd() * 0.24, inc = (rnd() - 0.5) * 0.3;
   const dx = (rnd() - 0.5) * 0.12, dy = (rnd() - 0.5) * 0.1, ancho = 0.075 + rnd() * 0.045;
-  const c = Math.cos(rot), s = Math.sin(rot);
+  return { rot, esc, inc, dx, dy, ancho };
+}
+
+// trazos del dígito ya deformados, en el cuadrado unitario (sirven para dibujarlo a cualquier resolución)
+export function trazosDeformados(d, def) {
+  const c = Math.cos(def.rot), s = Math.sin(def.rot);
   const tr = ([x, y]) => {
     let u = x - 0.5, v = y - 0.5;
-    u += inc * v;
-    return [0.5 + esc * (c * u - s * v) + dx, 0.5 + esc * (s * u + c * v) + dy];
+    u += def.inc * v;
+    return [0.5 + def.esc * (c * u - s * v) + def.dx, 0.5 + def.esc * (s * u + c * v) + def.dy];
   };
-  const segs = [];
-  for (const trazo of TRAZOS[d]()) {
-    const p = trazo.map(tr);
+  return TRAZOS[d]().map(trazo => trazo.map(tr));
+}
+
+// rasteriza el dígito a 14×14 con una deformación al azar
+export function dibujar(d, rnd) {
+  return rasterizar(d, deformacion(rnd));
+}
+
+function rasterizar(d, def) {
+  const ancho = def.ancho, segs = [];
+  for (const p of trazosDeformados(d, def)) {
     for (let i = 0; i < p.length - 1; i++) segs.push([p[i], p[i + 1]]);
   }
   const img = new Float32Array(N * N);
@@ -80,9 +93,12 @@ export function dibujar(d, rnd) {
 }
 
 export function crearDatos(porClase = 50, semilla = 2026) {
-  const rnd = aleatorio(semilla), X = [], Y = [];
-  for (let k = 0; k < porClase; k++) for (let d = 0; d < 10; d++) { X.push(dibujar(d, rnd)); Y.push(d); }
-  return { X, Y };
+  const rnd = aleatorio(semilla), X = [], Y = [], D = [];
+  for (let k = 0; k < porClase; k++) for (let d = 0; d < 10; d++) {
+    const def = deformacion(rnd);
+    X.push(rasterizar(d, def)); Y.push(d); D.push(def);
+  }
+  return { X, Y, D }; // D: la deformación de cada ejemplo, para redibujarlo en alta resolución
 }
 
 // ---------- Red ----------

@@ -1234,8 +1234,9 @@ textarea { resize: vertical; }
 
 /* Vidrio: el contenido deja ver la escena detrás */
 .immersive .code-window {
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  background: rgba(16, 16, 16, 0.5);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
 }
 
 .immersive .services-grid {
@@ -1259,27 +1260,31 @@ textarea { resize: vertical; }
   -webkit-backdrop-filter: blur(14px);
 }
 
-/* Telemetría estilo VMS en la barra de navegación */
+/* Telemetría estilo VMS: franja debajo del menú */
+.vms-row { margin-top: 0.7rem; }
+
 .vms-strip {
   display: flex;
-  max-width: 46vw;
-  overflow: hidden;
   align-items: center;
-  gap: 0;
-  padding: 0.35rem 0.4rem;
+  width: 100%;
+  min-height: 30px;
+  padding: 0.3rem 0.5rem;
   border: 1px solid rgba(0, 204, 255, 0.16);
   border-radius: 6px;
-  background: rgba(10, 10, 10, 0.55);
+  background: rgba(10, 10, 10, 0.6);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   font-family: 'IBM Plex Mono', Consolas, Monaco, monospace;
-  font-size: 0.64rem;
+  font-size: 0.66rem;
   letter-spacing: 0.04em;
   color: var(--text-muted);
   white-space: nowrap;
+  overflow: hidden;
   font-variant-numeric: tabular-nums;
 }
 
 .vms-strip > span {
-  padding: 0 0.7rem;
+  padding: 0 0.8rem;
   border-left: 1px solid rgba(255, 255, 255, 0.08);
 }
 
@@ -1309,14 +1314,25 @@ textarea { resize: vertical; }
   color: var(--primary-light);
   text-transform: uppercase;
   letter-spacing: 0.1em;
+  min-width: 17ch;
 }
 
-.vms-layer { color: var(--text); }
-.vms-shape { min-width: 9ch; }
+.vms-layer { color: var(--text); min-width: 30ch; }
+.vms-shape { min-width: 32ch; }
+
+.vms-spark {
+  width: 60px;
+  height: 14px;
+  margin-right: 0.8rem;
+}
+
+.vms-spark[hidden] { display: none; }
 
 .vms-steps {
   display: inline-flex;
   gap: 2px;
+  margin-left: auto;
+  padding-left: 0.8rem;
 }
 
 .vms-steps b {
@@ -1329,12 +1345,13 @@ textarea { resize: vertical; }
 
 .vms-steps b.on { background: var(--primary-light); }
 
-@media (max-width: 1180px) {
-  .vms-shape { display: none; }
+@media (max-width: 900px) {
+  .vms-shape, .vms-spark { display: none; }
+  .vms-layer { min-width: 0; }
 }
 
-@media (max-width: 1060px) {
-  .vms-strip { display: none; }
+@media (max-width: 600px) {
+  .vms-row { display: none; }
 }
 
 /* Cursor */

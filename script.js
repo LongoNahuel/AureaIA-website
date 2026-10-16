@@ -6,7 +6,8 @@ window.addEventListener('load', () => {
     setTimeout(() => loading.style.display = 'none', 500);
   }, 400);
 
-  if (typeof particlesJS !== 'undefined') initParticles();
+  // Con la escena 3D activa (immersive.js) las partículas 2D no hacen falta
+  if (typeof particlesJS !== 'undefined' && !window.AureaImmersive) initParticles();
 
   const heroCode = document.getElementById('hero-code');
   if (heroCode) {
@@ -191,10 +192,12 @@ document.querySelectorAll('a[href^="#"]').forEach(anchor => {
     return;
   }
 
-  // Section headers
+  // Section headers: el título aparece desde una máscara
   document.querySelectorAll('.section-header.reveal').forEach(el => {
     inView(el, () => {
       animate(el, { opacity: [0, 1], y: [24, 0] }, { duration: 0.6, easing: [0.25, 1, 0.5, 1] });
+      const h2 = el.querySelector('h2');
+      if (h2) animate(h2, { clipPath: ['inset(0 0 100% 0)', 'inset(0 0 0% 0)'], y: [20, 0] }, { duration: 0.85, delay: 0.1, easing: [0.22, 1, 0.36, 1] });
     }, { amount: 0.2 });
   });
 
@@ -225,41 +228,6 @@ document.querySelectorAll('a[href^="#"]').forEach(anchor => {
     }, { amount: 0.15 });
   });
 })();
-
-// Portfolio videos — play on hover (desktop)
-// Las tarjetas con render ASCII (ascii-video.js) se reproducen solas mientras están en pantalla.
-const isTouchDevice = window.matchMedia('(hover: none)').matches;
-const usesAscii = card => card.classList.contains('ascii-active');
-
-document.querySelectorAll('.portfolio-card').forEach(card => {
-  const video = card.querySelector('video');
-  if (!video) return;
-
-  if (!isTouchDevice) {
-    card.addEventListener('mouseenter', () => {
-      if (!usesAscii(card)) video.play().catch(() => {});
-    });
-    card.addEventListener('mouseleave', () => {
-      if (usesAscii(card)) return;
-      video.pause();
-      video.currentTime = 0;
-    });
-  }
-});
-
-// Portfolio videos — play when in view (mobile / touch)
-if (isTouchDevice) {
-  const videoObserver = new IntersectionObserver((entries) => {
-    entries.forEach(entry => {
-      const video = entry.target.querySelector('video');
-      if (!video || usesAscii(entry.target)) return;
-      if (entry.isIntersecting) video.play().catch(() => {});
-      else { video.pause(); video.currentTime = 0; }
-    });
-  }, { threshold: 0.5 });
-
-  document.querySelectorAll('.portfolio-card').forEach(card => videoObserver.observe(card));
-}
 
 // Contact form → WhatsApp
 const contactForm = document.getElementById('contactForm');
@@ -462,62 +430,10 @@ function initContactParticles() {
   window.addEventListener('resize', () => { stop(); build(); start(); }, { passive: true });
 }
 
-// Video lightbox
-(function () {
-  const modal = document.getElementById('videoModal');
-  const player = document.getElementById('videoModalPlayer');
-  const tagEl = document.getElementById('videoModalTag');
-  const titleEl = document.getElementById('videoModalTitle');
-  const descEl = document.getElementById('videoModalDesc');
-  const closeBtn = document.getElementById('videoModalClose');
-  const backdrop = document.getElementById('videoModalBackdrop');
-
-  if (!modal) return;
-
-  function openModal(card) {
-    const cardVideo = card.querySelector('video');
-    if (cardVideo) { cardVideo.pause(); cardVideo.currentTime = 0; }
-    window.AureaAscii?.pause();
-
-    // El lightbox muestra el video original completo (data-full), no la versión liviana
-    const src = card.dataset.full || card.querySelector('video source')?.src || cardVideo?.currentSrc || '';
-    const tag = card.querySelector('.portfolio-tag')?.textContent || '';
-    const title = card.querySelector('h3')?.textContent || '';
-    const desc = card.querySelector('p')?.textContent || '';
-
-    player.src = src;
-    player.load();
-    tagEl.textContent = tag;
-    titleEl.textContent = title;
-    descEl.textContent = desc;
-
-    modal.classList.add('show');
-    document.body.style.overflow = 'hidden';
-    player.play().catch(() => {});
-  }
-
-  function closeModal() {
-    modal.classList.remove('show');
-    document.body.style.overflow = '';
-    player.pause();
-    player.src = '';
-    window.AureaAscii?.resume();
-  }
-
-  document.querySelectorAll('.portfolio-card').forEach(card => {
-    card.addEventListener('click', () => openModal(card));
-  });
-
-  closeBtn.addEventListener('click', closeModal);
-  backdrop.addEventListener('click', closeModal);
-  window.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') closeModal();
-  });
-})();
-
 // Cookie banner
 document.addEventListener('DOMContentLoaded', () => {
   initContactParticles();
+  // La red de partículas conectadas de contacto y pie se mantiene también con el fondo 3D
   initContactBgParticles();
   initFooterParticles();
 

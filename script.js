@@ -6,7 +6,8 @@ window.addEventListener('load', () => {
     setTimeout(() => loading.style.display = 'none', 500);
   }, 400);
 
-  if (typeof particlesJS !== 'undefined') initParticles();
+  // Con la escena 3D activa (immersive.js) las partículas 2D no hacen falta
+  if (typeof particlesJS !== 'undefined' && !window.AureaImmersive) initParticles();
 
   const heroCode = document.getElementById('hero-code');
   if (heroCode) {
@@ -191,10 +192,12 @@ document.querySelectorAll('a[href^="#"]').forEach(anchor => {
     return;
   }
 
-  // Section headers
+  // Section headers: el título aparece desde una máscara
   document.querySelectorAll('.section-header.reveal').forEach(el => {
     inView(el, () => {
       animate(el, { opacity: [0, 1], y: [24, 0] }, { duration: 0.6, easing: [0.25, 1, 0.5, 1] });
+      const h2 = el.querySelector('h2');
+      if (h2) animate(h2, { clipPath: ['inset(0 0 100% 0)', 'inset(0 0 0% 0)'], y: [20, 0] }, { duration: 0.85, delay: 0.1, easing: [0.22, 1, 0.36, 1] });
     }, { amount: 0.2 });
   });
 
@@ -518,8 +521,10 @@ function initContactParticles() {
 // Cookie banner
 document.addEventListener('DOMContentLoaded', () => {
   initContactParticles();
-  initContactBgParticles();
-  initFooterParticles();
+  if (!window.AureaImmersive) {
+    initContactBgParticles();
+    initFooterParticles();
+  }
 
   const banner = document.getElementById('cookieBanner');
   if (!localStorage.getItem('cookieConsent')) {

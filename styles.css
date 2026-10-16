@@ -1209,6 +1209,179 @@ textarea { resize: vertical; }
   gap: 0.65rem;
 }
 
+/* === ESCENA INMERSIVA — ver immersive.js === */
+.immersive-canvas {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: -1;
+  display: block;
+  pointer-events: none;
+}
+
+/* Etiquetas del recorrido: 01 Datos → 04 Decisión */
+.stage-eyebrow {
+  display: inline-block;
+  margin-bottom: 0.9rem;
+  font-family: 'IBM Plex Mono', Consolas, Monaco, monospace;
+  font-size: 0.68rem;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--primary-light);
+}
+
+/* Vidrio: el contenido deja ver la escena detrás */
+.immersive .code-window {
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.immersive .services-grid {
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.immersive .service-card { background: rgba(10, 10, 10, 0.8); }
+.immersive .service-card:hover { background: rgba(17, 17, 17, 0.88); }
+
+.immersive .ascii-panel {
+  background: rgba(17, 17, 17, 0.82);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+/* Indicador de recorrido (escritorio) */
+.stage-hud {
+  position: fixed;
+  top: 50%;
+  right: 1.5rem;
+  transform: translateY(-50%);
+  z-index: 90;
+  display: flex;
+  gap: 0.9rem;
+  align-items: stretch;
+}
+
+.stage-hud ol {
+  list-style: none;
+  display: grid;
+  gap: 1rem;
+}
+
+.stage-hud a {
+  display: flex;
+  gap: 0.55rem;
+  align-items: baseline;
+  justify-content: flex-end;
+  font-family: 'IBM Plex Mono', Consolas, Monaco, monospace;
+  font-size: 0.62rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  transition: color 0.3s ease;
+}
+
+.stage-hud .l {
+  opacity: 0;
+  transform: translateX(6px);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.stage-hud a:hover,
+.stage-hud li.is-active a { color: var(--primary-light); }
+
+.stage-hud a:hover .l,
+.stage-hud li.is-active .l {
+  opacity: 1;
+  transform: none;
+}
+
+.stage-hud a:focus-visible {
+  outline: 2px solid var(--primary-light);
+  outline-offset: 3px;
+}
+
+.stage-hud-bar {
+  position: relative;
+  width: 1px;
+  background: var(--border);
+}
+
+.stage-hud-bar span {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1px;
+  height: 0;
+  background: var(--primary-light);
+  box-shadow: 0 0 8px rgba(0, 204, 255, 0.6);
+}
+
+/* Cursor */
+.cursor-ring {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 10002;
+  width: 34px;
+  height: 34px;
+  margin: -17px 0 0 -17px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(0, 204, 255, 0.55);
+  border-radius: 50%;
+  pointer-events: none;
+  opacity: 0;
+  transition: width 0.25s ease, height 0.25s ease, margin 0.25s ease,
+              background-color 0.25s ease, border-color 0.25s ease, opacity 0.3s ease;
+}
+
+.cursor-ring span {
+  font-family: 'IBM Plex Mono', Consolas, Monaco, monospace;
+  font-size: 0.58rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #fff;
+  white-space: nowrap;
+}
+
+.cursor-ring.is-visible { opacity: 1; }
+
+.cursor-ring.is-hover {
+  width: 52px;
+  height: 52px;
+  margin: -26px 0 0 -26px;
+  border-color: rgba(0, 204, 255, 0.9);
+  background: rgba(0, 102, 255, 0.12);
+}
+
+.cursor-ring.is-card {
+  width: 84px;
+  height: 84px;
+  margin: -42px 0 0 -42px;
+  border-color: transparent;
+  background: rgba(0, 102, 255, 0.88);
+}
+
+.has-cursor .portfolio-expand-icon { display: none; }
+
+.is-magnetic {
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease,
+              transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) !important;
+}
+
+/* Solo cuando hay margen a la derecha del contenido */
+@media (max-width: 1340px) {
+  .stage-hud { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cursor-ring { display: none; }
+}
+
 /* === REVEAL ANIMATION === */
 .reveal {
   opacity: 0;

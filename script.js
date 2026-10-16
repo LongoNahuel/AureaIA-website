@@ -430,64 +430,6 @@ function initContactParticles() {
   window.addEventListener('resize', () => { stop(); build(); start(); }, { passive: true });
 }
 
-// Video lightbox
-(function () {
-  const modal = document.getElementById('videoModal');
-  const player = document.getElementById('videoModalPlayer');
-  const tagEl = document.getElementById('videoModalTag');
-  const titleEl = document.getElementById('videoModalTitle');
-  const descEl = document.getElementById('videoModalDesc');
-  const closeBtn = document.getElementById('videoModalClose');
-  const backdrop = document.getElementById('videoModalBackdrop');
-
-  if (!modal) return;
-  let origen = null; // la tarjeta que abrió el video, para devolverle el foco
-
-  function openModal(card) {
-    // Las tarjetas son capturas fijas: el video original (data-full) solo se ve en el lightbox
-    const src = card.dataset.full || '';
-    if (!src) return;
-    const tag = card.querySelector('.portfolio-tag')?.textContent || '';
-    const title = card.querySelector('h3')?.textContent || '';
-    const desc = card.querySelector('p')?.textContent || '';
-
-    player.src = src;
-    player.load();
-    tagEl.textContent = tag;
-    titleEl.textContent = title;
-    descEl.textContent = desc;
-
-    origen = card;
-    modal.classList.add('show');
-    document.body.style.overflow = 'hidden';
-    player.play().catch(() => {});
-    closeBtn.focus({ preventScroll: true });
-  }
-
-  function closeModal() {
-    if (!modal.classList.contains('show')) return;
-    modal.classList.remove('show');
-    document.body.style.overflow = '';
-    player.pause();
-    player.removeAttribute('src');
-    player.load();
-    origen?.focus({ preventScroll: true });
-  }
-
-  document.querySelectorAll('.portfolio-card').forEach(card => {
-    card.addEventListener('click', () => openModal(card));
-    card.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openModal(card); }
-    });
-  });
-
-  closeBtn.addEventListener('click', closeModal);
-  backdrop.addEventListener('click', closeModal);
-  window.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') closeModal();
-  });
-})();
-
 // Cookie banner
 document.addEventListener('DOMContentLoaded', () => {
   initContactParticles();

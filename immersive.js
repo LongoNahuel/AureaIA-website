@@ -781,7 +781,6 @@ function iniciar() {
   else window.addEventListener('load', empezarIntro);
 
   const telemetria = crearTelemetria();
-  const modal = document.getElementById('videoModal');
   const pos = V(0, 0, 0), mira = V(0, 0, 0);
   let sCur = etapaScroll(), tPrev = performance.now(), tiempo = 0, hudT = 0;
   let actualizado = false, acumPasos = 0, cicloT = 0, latT = 0, latListo = false;
@@ -793,7 +792,6 @@ function iniciar() {
     const dt = Math.min(0.05, (now - tPrev) / 1000);
     const dtr = Math.min(0.25, (now - tPrev) / 1000);
     tPrev = now;
-    if (modal && modal.classList.contains('show')) return;
     if (!reduceMotion) tiempo += dt;
 
     let intro = 1;
@@ -1031,8 +1029,6 @@ function iniciarCursor() {
   const anillo = document.createElement('div');
   anillo.className = 'cursor-ring';
   anillo.setAttribute('aria-hidden', 'true');
-  const etiquetaCursor = document.createElement('span');
-  anillo.append(etiquetaCursor);
   document.body.append(anillo);
   document.documentElement.classList.add('has-cursor');
 
@@ -1046,11 +1042,7 @@ function iniciarCursor() {
 
   const interactivo = 'a, button, label, input, textarea, select, [role="slider"]';
   document.addEventListener('pointerover', e => {
-    const card = e.target.closest('.portfolio-card');
-    const ctl = e.target.closest(interactivo);
-    anillo.classList.toggle('is-card', !!card && !ctl);
-    anillo.classList.toggle('is-hover', !!ctl);
-    etiquetaCursor.textContent = card && !ctl ? 'Ver video' : '';
+    anillo.classList.toggle('is-hover', !!e.target.closest(interactivo));
   });
 
   const loop = () => {

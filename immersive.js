@@ -5,8 +5,11 @@
    recorre por dentro una red neuronal multicapa real (fondo/red.js) mientras
    se entrena con dígitos escritos a mano.
 
-     01 Datos            (#inicio)     una galaxia con los 500 ejemplos de
-                                       entrenamiento; uno entra al cerebro
+     01 Datos            (#inicio)     al acercarse, columnas verticales de
+                                       código caen como lluvia: fórmulas de
+                                       backpropagation (violeta) y binario y
+                                       hexadecimal (cian); un flujo entra al
+                                       cerebro
      02 Forward          (#servicios)  la señal avanza capa por capa al ritmo
                                        del scroll: entrada 14×14, convolución,
                                        max pooling, densas 32 y 16, softmax 10
@@ -18,13 +21,14 @@
                                        de 16) se ordena por dígito
 
    Pesos, activaciones, gradientes, pérdida y precisión son los de la red.
-   La escena no tiene textos: todo se lee por forma, color y movimiento (los
-   números viven en la franja de telemetría debajo del menú).
+   Sin carteles ni etiquetas: fuera de la lluvia de código del inicio, todo
+   se lee por forma, color y movimiento (los números viven en la franja de
+   telemetría debajo del menú).
 
    Resolución: hasta 2× la densidad de píxeles de la pantalla (MSAA ×4 en el
    compositor cuando la pantalla es de densidad 1–1,5) y escala adaptativa:
-   baja la resolución si el equipo no llega a ~45 fps. Three.js con bloom (UnrealBloomPass) y niebla. Sin WebGL, el
-   sitio usa particles.js como antes.
+   baja la resolución si el equipo no llega a ~45 fps. Three.js con bloom
+   (UnrealBloomPass) y niebla. Sin WebGL, el sitio usa particles.js como antes.
    ========================================================================== */
 import * as THREE from 'three';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
@@ -47,7 +51,16 @@ const compacto = coarse || Math.min(window.innerWidth, window.innerHeight) < 700
 const Q = compacto ? { puntos: 14000, tam: 0.54, niebla: 0.0065 } : { puntos: 42000, tam: 0.47, niebla: 0.0055 };
 const PR_MAX = Math.min(window.devicePixelRatio || 1, 2);
 const PR_MIN = Math.min(PR_MAX, 1);
-const TESELA = 40; // px de cada dígito en el atlas de la galaxia (los datos de la red siguen en 14×14)
+const TESELA = 40; // px de cada dígito en el atlas del panel (los datos de la red siguen en 14×14)
+
+// Lluvia de código del inicio: fórmulas reales de backpropagation y Adam, y columnas de binario/hex
+const FORMULAS = [
+  '∂L/∂w=δ·aᵀ', "δ=(Wᵀδ')⊙ReLU'(z)", 'w←w−η·∂L/∂w', '∂L/∂b=δ', '∂L/∂z=p−y', 'L=−Σy·log(p)',
+  'z=W·a+b', 'a=ReLU(z)', 'p=softmax(z)', '∂L/∂a=Wᵀδ', 'm←β₁m+(1−β₁)g', 'v←β₂v+(1−β₂)g²',
+  'θ←θ−η·m/(√v+ε)', 'η=0.003', "ReLU'(z)=[z>0]",
+];
+const HEXA = '0123456789ABCDEF';
+const LLUVIA = compacto ? { columnas: 90, tam: 1.1 } : { columnas: 150, tam: 0.95 };
 
 const FONDO = 0x0a0a0a;
 const CIAN = new THREE.Color(0x00ccff);
@@ -55,7 +68,7 @@ const VIOLETA = new THREE.Color(0.55, 0.45, 1.0);
 const BLANCO = new THREE.Color(0xe8f6ff);
 
 // profundidad de cada capa (la señal avanza hacia -z)
-const Z = { gal: 70, in: 26, conv: 18, pool: 11, h1: 1, h2: -8, out: -17, perdida: -22 };
+const Z = { in: 26, conv: 18, pool: 11, h1: 1, h2: -8, out: -17, perdida: -22 };
 const ESC_CEREBRO = 2.4;
 
 // ---------- Utilidades ----------
@@ -251,38 +264,73 @@ varying vec3 vColor;
 varying float vAlpha;
 void main() { gl_FragColor = vec4(vColor, vAlpha); }`;
 
-// Galaxia de ejemplos: cada punto dibuja su dígito desde un atlas
-const galaxiaVS = /* glsl */`
-attribute float aTile;
-attribute float aSel;
-uniform float uPixel, uOpacity, uFog, uSize, uTime;
+// Lluvia de código: cada punto es un carácter del atlas de glifos. Una "cabeza"
+// baja por cada columna y deja una estela que se apaga, como en Matrix.
+const lluviaVS = /* glsl */`
+attribute float aGlifo;
+attribute float aFila;
+attribute vec4 aCol;    // velocidad (filas/s), fase, largo de la estela, ciclo
+attribute float aTipo;  // 0 código, 1 fórmula
+uniform float uPixel, uOpacity, uFog, uTam, uEscala, uTime;
+uniform vec2 uGrilla;
 varying vec2 vTile;
+varying float vLuz;
+varying float vPunta;
+varying float vTipo;
 varying float vAlpha;
-varying float vSel;
 void main() {
   vec4 mv = modelViewMatrix * vec4(position, 1.0);
   gl_Position = projectionMatrix * mv;
   float depth = max(-mv.z, 0.5);
-  gl_PointSize = uSize * uPixel * (1.0 + aSel * 1.4) * (300.0 / depth);
-  vTile = vec2(mod(aTile, 25.0), floor(aTile / 25.0));
-  vSel = aSel;
-  vAlpha = uOpacity * (0.55 + 0.45 * aSel) * exp(-pow(uFog * depth, 2.0)) * smoothstep(3.0, 12.0, depth);
+  gl_PointSize = uTam * uEscala * uPixel / depth;
+  float cabeza = mod(uTime * aCol.x + aCol.y, aCol.w);
+  float d = cabeza - aFila;                       // > 0: la cabeza ya pasó por este carácter
+  vPunta = exp(-d * d * 1.6);
+  vLuz = d < 0.0 ? 0.0 : exp(-d / aCol.z);
+  vTile = vec2(mod(aGlifo, uGrilla.x), floor(aGlifo / uGrilla.x));
+  vTipo = aTipo;
+  vAlpha = uOpacity * exp(-pow(uFog * depth, 2.0)) * smoothstep(6.0, 18.0, depth); // las columnas que pasan al lado se apagan
 }`;
-const galaxiaFS = /* glsl */`
+const lluviaFS = /* glsl */`
 uniform sampler2D uAtlas;
+uniform vec2 uGrilla;
 varying vec2 vTile;
+varying float vLuz;
+varying float vPunta;
+varying float vTipo;
 varying float vAlpha;
-varying float vSel;
 void main() {
-  vec2 uv = (vTile + gl_PointCoord) / vec2(25.0, 20.0);
-  float v = texture2D(uAtlas, uv).r;
-  vec2 q = abs(gl_PointCoord * 2.0 - 1.0);
-  float borde = step(0.9, max(q.x, q.y)) * (0.25 + 0.75 * vSel);
-  vec3 c = mix(vec3(0.0, 0.55, 1.0), vec3(0.85, 0.96, 1.0), v) ;
-  c = mix(c, vec3(1.0), vSel * v * 0.5);
-  float a = max(v, borde) * vAlpha + 0.04 * vAlpha;
-  gl_FragColor = vec4(c, a);
+  float v = texture2D(uAtlas, (vTile + gl_PointCoord) / uGrilla).r;
+  if (v < 0.02) discard;
+  vec3 base = mix(vec3(0.0, 0.62, 1.0), vec3(0.62, 0.5, 1.0), vTipo); // código cian, fórmulas violeta
+  vec3 c = mix(base, vec3(0.9, 0.97, 1.0), vPunta * 0.85);
+  float fondo = mix(0.05, 0.15, vTipo);                               // las fórmulas quedan legibles
+  gl_FragColor = vec4(c, v * vAlpha * (fondo + (1.0 - fondo) * max(vLuz, vPunta)));
 }`;
+
+// Atlas de glifos (64 px por carácter) para la lluvia de código
+function crearAtlasGlifos(caracteres) {
+  const T = 64, cols = 16, filas = Math.ceil(caracteres.length / cols);
+  const c = document.createElement('canvas');
+  c.width = cols * T; c.height = filas * T;
+  const g = c.getContext('2d');
+  const tex = new THREE.CanvasTexture(c);
+  tex.flipY = false;
+  tex.minFilter = THREE.LinearMipmapLinearFilter;
+  tex.magFilter = THREE.LinearFilter;
+  tex.anisotropy = 4;
+  const fuente = '500 44px "IBM Plex Mono", "SFMono-Regular", Consolas, "DejaVu Sans Mono", "Cambria Math", "Segoe UI Symbol", monospace';
+  const dibujar = () => {
+    g.fillStyle = '#000'; g.fillRect(0, 0, c.width, c.height);
+    g.fillStyle = '#fff'; g.font = fuente; g.textAlign = 'center'; g.textBaseline = 'middle';
+    caracteres.forEach((ch, i) => g.fillText(ch, (i % cols) * T + T / 2, Math.floor(i / cols) * T + T / 2 + 2));
+    tex.needsUpdate = true;
+  };
+  dibujar();
+  // cuando llega IBM Plex Mono se vuelve a dibujar con la fuente del sitio
+  if (document.fonts && document.fonts.load) document.fonts.load('500 44px "IBM Plex Mono"').then(dibujar).catch(() => {});
+  return { tex, grilla: new THREE.Vector2(cols, filas), indice: new Map(caracteres.map((ch, i) => [ch, i])) };
+}
 
 // ---------- Lienzos 2D dentro de la escena (solo gráficos, sin texto) ----------
 // Se dibujan a 2× para que sigan nítidos en pantallas de alta densidad.
@@ -366,9 +414,9 @@ function iniciar() {
     transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
   })));
 
-  // ---------- Galaxia de 500 ejemplos ----------
-  // Atlas de 25×20 dígitos redibujados en alta resolución con los mismos trazos
-  // y la misma deformación que el ejemplo de 14×14 con el que entrena la red.
+  // ---------- Atlas de dígitos (miniaturas del panel de entrenamiento) ----------
+  // 25×20 dígitos redibujados en alta resolución con los mismos trazos y la
+  // misma deformación que el ejemplo de 14×14 con el que entrena la red.
   const atlasCanvas = document.createElement('canvas');
   atlasCanvas.width = 25 * TESELA; atlasCanvas.height = 20 * TESELA;
   (() => {
@@ -385,27 +433,69 @@ function iniciar() {
       }
     });
   })();
-  const atlasTex = new THREE.CanvasTexture(atlasCanvas);
-  atlasTex.flipY = false;
-  atlasTex.minFilter = THREE.LinearMipmapLinearFilter;
-  atlasTex.magFilter = THREE.LinearFilter;
-  atlasTex.anisotropy = 4;
-  const nG = datos.X.length;
-  const galPos = new Float32Array(nG * 3), galBase = [];
-  for (let k = 0; k < nG; k++) { // galaxia espiral de dos brazos frente al cerebro
-    const r = 3 + 15 * Math.sqrt(rand()), brazo = (k % 2) * Math.PI, a = brazo + r * 0.32 + gauss() * 0.25;
-    galBase.push([r, a, gauss() * 1.4, gauss() * 4]);
+
+  // ---------- Lluvia de código: fórmulas de backpropagation, binario y hex ----------
+  const glifos = [...new Set([...FORMULAS.join(''), ...HEXA, 'x'])];
+  const atlasGlifos = crearAtlasGlifos(glifos);
+  const lluvia = { pos: [], glifo: [], fila: [], col: [], tipo: [], cambia: [] }; // cambia: 0 fijo, 1 binario, 2 hex
+  const textoCodigo = () => {
+    if (rand() < 0.5) return Array.from({ length: 14 + Math.floor(rand() * 14) }, () => (rand() < 0.5 ? '0' : '1')).join('');
+    let t = '';
+    while (t.length < 16) t += (t ? '  ' : '') + '0x' + Array.from({ length: 2 + 2 * Math.floor(rand() * 2) }, () => HEXA[Math.floor(rand() * 16)]).join('');
+    return t;
+  };
+  const sep = LLUVIA.tam * 1.08;
+  for (let k = 0; k < LLUVIA.columnas; k++) {
+    const formula = rand() < 0.38;
+    const texto = formula ? FORMULAS[Math.floor(rand() * FORMULAS.length)] + '   ' + FORMULAS[Math.floor(rand() * FORMULAS.length)] : textoCodigo();
+    const chars = Array.from(texto);
+    // columnas alrededor del acercamiento de la cámara, cargadas hacia la derecha para no tapar el título
+    const x = clamp(14 + gauss() * 12, -10, 40), z = 42 + rand() * 60, y0 = 4 + rand() * 16;
+    const vel = formula ? 3 + rand() * 3 : 6 + rand() * 8;
+    const estelaLargo = formula ? 8 + rand() * 6 : 4 + rand() * 5;
+    const ciclo = chars.length + estelaLargo * 3 + rand() * chars.length;
+    const col = [vel, rand() * ciclo, estelaLargo, ciclo];
+    chars.forEach((ch, i) => {
+      if (ch === ' ') return;
+      lluvia.pos.push(x, y0 - i * sep, z);
+      lluvia.glifo.push(atlasGlifos.indice.get(ch));
+      lluvia.fila.push(i);
+      lluvia.col.push(...col);
+      lluvia.tipo.push(formula ? 1 : 0);
+      const enHex = !formula && texto.includes('x');
+      lluvia.cambia.push(formula || ch === 'x' || (enHex && texto[i + 1] === 'x') ? 0 : enHex ? 2 : 1);
+    });
   }
-  const gg = new THREE.BufferGeometry();
-  gg.setAttribute('position', new THREE.BufferAttribute(galPos, 3));
-  gg.setAttribute('aTile', new THREE.BufferAttribute(Float32Array.from({ length: nG }, (_, k) => k), 1));
-  gg.setAttribute('aSel', new THREE.BufferAttribute(new Float32Array(nG), 1));
-  gg.boundingSphere = new THREE.Sphere(V(0, 0, Z.gal), 60);
-  const uGal = { uPixel: { value: pr }, uOpacity: { value: 0 }, uFog: { value: Q.niebla }, uSize: { value: compacto ? 2.2 : 1.8 }, uTime: { value: 0 }, uAtlas: { value: atlasTex } };
-  scene.add(new THREE.Points(gg, new THREE.ShaderMaterial({
-    uniforms: uGal, vertexShader: galaxiaVS, fragmentShader: galaxiaFS, transparent: true, depthWrite: false,
+  const nLluvia = lluvia.glifo.length;
+  const glluvia = new THREE.BufferGeometry();
+  glluvia.setAttribute('position', new THREE.BufferAttribute(new Float32Array(lluvia.pos), 3));
+  glluvia.setAttribute('aGlifo', new THREE.BufferAttribute(new Float32Array(lluvia.glifo), 1));
+  glluvia.setAttribute('aFila', new THREE.BufferAttribute(new Float32Array(lluvia.fila), 1));
+  glluvia.setAttribute('aCol', new THREE.BufferAttribute(new Float32Array(lluvia.col), 4));
+  glluvia.setAttribute('aTipo', new THREE.BufferAttribute(new Float32Array(lluvia.tipo), 1));
+  glluvia.boundingSphere = new THREE.Sphere(V(0, 0, 78), 80);
+  const uLluvia = {
+    uPixel: { value: pr }, uOpacity: { value: 0 }, uFog: { value: Q.niebla }, uTam: { value: LLUVIA.tam }, uEscala: { value: 1 },
+    uTime: { value: 0 }, uAtlas: { value: atlasGlifos.tex }, uGrilla: { value: atlasGlifos.grilla },
+  };
+  scene.add(new THREE.Points(glluvia, new THREE.ShaderMaterial({
+    uniforms: uLluvia, vertexShader: lluviaVS, fragmentShader: lluviaFS,
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
   })));
-  // estela del ejemplo que entra a la red
+  const binIdx = ['0', '1'].map(c => atlasGlifos.indice.get(c)), hexIdx = [...HEXA].map(c => atlasGlifos.indice.get(c));
+  let parpadeoT = 0;
+  function parpadear() { // los bits y los bytes cambian mientras caen
+    const g = glluvia.attributes.aGlifo.array;
+    for (let i = 0; i < nLluvia; i++) {
+      if (!lluvia.cambia[i] || Math.random() > 0.06) continue;
+      const set = lluvia.cambia[i] === 1 ? binIdx : hexIdx;
+      g[i] = set[Math.floor(Math.random() * set.length)];
+    }
+    glluvia.attributes.aGlifo.needsUpdate = true;
+  }
+  const ORIGEN_FLUJO = V(0, 5, 66); // de la lluvia sale el flujo de datos que entra al cerebro
+
+  // estela: el flujo de datos que entra a la red
   const estelaGeo = new THREE.BufferGeometry();
   estelaGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(16 * 6), 3));
   const estelaMat = new THREE.LineBasicMaterial({ color: CIAN, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, fog: false });
@@ -624,7 +714,7 @@ function iniciar() {
     return 4;
   };
 
-  // paradas de cámara: afuera → galaxia → adentro de la red → giro → vuelta → afuera
+  // paradas de cámara: afuera → lluvia de código → adentro de la red → giro → vuelta → afuera
   const PARADAS = [
     { s: 0.00, cam: V(30, 12, 118), foco: V(0, 2, 28), corre: 17 },
     { s: 0.50, cam: V(20, 8, 100), foco: V(0, 0, 46), corre: 11 },
@@ -662,7 +752,7 @@ function iniciar() {
     pr = p;
     renderer.setPixelRatio(p);
     if (composer) { composer.setPixelRatio(p); composer.setSize(window.innerWidth, window.innerHeight); }
-    uCerebro.uPixel.value = uRed.uPixel.value = uGal.uPixel.value = p;
+    uCerebro.uPixel.value = uRed.uPixel.value = uLluvia.uPixel.value = p;
     window.AureaImmersive && (window.AureaImmersive.resolucion = p);
   }
   function medirCalidad(ms) {
@@ -695,7 +785,7 @@ function iniciar() {
   const pos = V(0, 0, 0), mira = V(0, 0, 0);
   let sCur = etapaScroll(), tPrev = performance.now(), tiempo = 0, hudT = 0;
   let actualizado = false, acumPasos = 0, cicloT = 0, latT = 0, latListo = false;
-  let ultimoPaso = null, ultimoLote = [7], loteVisible = new Set([7]);
+  let ultimoPaso = null, ultimoLote = [7];
 
   function frame(now) {
     requestAnimationFrame(frame);
@@ -742,7 +832,6 @@ function iniciar() {
       if (cicloT > 0.9) { // un ejemplo del lote recorre la red: adelante y atrás
         cicloT = 0;
         ej = ultimoLote[0];
-        loteVisible = new Set(ultimoLote);
         sucio = true;
         metrica = entrenador.evaluar(200);
         for (const k of [ej, ...Array.from({ length: 3 }, () => Math.floor(Math.random() * datos.X.length))]) {
@@ -774,7 +863,7 @@ function iniciar() {
     uCerebro.uWaveZ.value = uBack ? waveB * ESC_CEREBRO * 0.6 : waveF * ESC_CEREBRO * 0.6;
     uCerebro.uWaveColor.value.copy(uBack ? VIOLETA : CIAN);
     uCerebro.uTime.value = tiempo;
-    uGal.uOpacity.value = ease * (1 - smooth(1.2, 1.5, s) * (1 - smooth(3.1, 3.5, s)));
+    uLluvia.uOpacity.value = ease * (1 - smooth(1.2, 1.5, s) * (1 - 0.6 * smooth(3.1, 3.5, s)));
     const conv = smooth(1.05, 1.2, s) * (1 - smooth(1.55, 1.7, s));
     kernelMat.opacity = conv;
     barras.material.opacity = smooth(1.85, 2.05, s) * (1 - smooth(2.3, 2.45, s)) + smooth(3.2, 3.5, s) * 0.55;
@@ -785,21 +874,14 @@ function iniciar() {
     for (let i = 0; i < lp.length; i++) lp[i] += (latObj[i] - lp[i]) * (1 - Math.exp(-dt * 3));
     glat.attributes.position.needsUpdate = true;
 
-    // ---- galaxia de ejemplos ----
-    const sel = gg.attributes.aSel.array;
-    const enLote = entrena ? loteVisible : new Set([ej]);
-    for (let k = 0; k < nG; k++) {
-      const [r, a, y, z] = galBase[k], ang = a + tiempo * 0.04 * (8 / (r + 2));
-      galPos[k * 3] = Math.cos(ang) * r;
-      galPos[k * 3 + 1] = Math.sin(ang) * r * 0.75 + y;
-      galPos[k * 3 + 2] = Z.gal + z;
-      sel[k] = enLote.has(k) ? 1 : 0;
-    }
-    gg.attributes.position.needsUpdate = true;
-    gg.attributes.aSel.needsUpdate = true;
-    // estela: del ejemplo a la capa de entrada
+    // ---- lluvia de código ----
+    uLluvia.uTime.value = tiempo;
+    uLluvia.uEscala.value = window.innerHeight / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)));
+    parpadeoT += dt;
+    if (!reduceMotion && parpadeoT > 0.07 && uLluvia.uOpacity.value > 0.01) { parpadeoT = 0; parpadear(); }
+    // estela: de la lluvia a la capa de entrada
     const ep = estelaGeo.attributes.position.array;
-    const desde = V(galPos[ej * 3], galPos[ej * 3 + 1], galPos[ej * 3 + 2]), hasta = V(0, 0, Z.in);
+    const desde = ORIGEN_FLUJO, hasta = V(0, 0, Z.in);
     for (let i = 0; i < 16; i++) {
       const t0 = i / 16, t1 = (i + 1) / 16;
       const a = desde.clone().lerp(hasta, t0), b = desde.clone().lerp(hasta, t1);

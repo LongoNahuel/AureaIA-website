@@ -1789,3 +1789,99 @@ textarea { resize: vertical; }
   .btn-submit { width: 100%; }
   .hero-stats { gap: 1.25rem; }
 }
+
+/* ==========================================================================
+   TRANSPARENCIAS — los paneles dejan ver el fondo inmersivo
+   Fondos al 25–45 % y desenfoque leve; el texto gana una sombra suave para
+   seguir leyéndose sobre las zonas brillantes de la escena.
+   ========================================================================== */
+.immersive .hero-text h1,
+.immersive .hero-sub,
+.immersive .section-header h2,
+.immersive .section-header p,
+.immersive .service-card h3,
+.immersive .service-card p,
+.immersive .portfolio-info h3,
+.immersive .portfolio-info p,
+.immersive .contact-info > p,
+.immersive .stat-num,
+.immersive .stat-label {
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8), 0 0 18px rgba(10, 10, 10, 0.9);
+}
+
+.immersive .navbar.scrolled {
+  background: rgba(10, 10, 10, 0.5);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.immersive .vms-strip {
+  background: rgba(10, 10, 10, 0.3);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+.immersive .code-window {
+  background: rgba(16, 16, 16, 0.3);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  box-shadow: none;
+}
+
+.immersive .code-header { background: rgba(24, 24, 24, 0.45); }
+
+.immersive .services-grid {
+  background: rgba(10, 10, 10, 0.28);
+  border-color: rgba(255, 255, 255, 0.09);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+}
+
+.immersive .service-card:hover { background: rgba(0, 102, 255, 0.08); }
+
+.immersive .ascii-panel {
+  background: rgba(17, 17, 17, 0.35);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+.immersive .portfolio-card {
+  background: rgba(17, 17, 17, 0.32);
+  border-color: rgba(255, 255, 255, 0.09);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+}
+
+.immersive .portfolio-tag,
+.immersive .badge { background: rgba(0, 102, 255, 0.14); }
+
+.immersive .contact-form {
+  background: rgba(17, 17, 17, 0.28);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+}
+
+.immersive .form-group input,
+.immersive .form-group textarea {
+  background: rgba(10, 10, 10, 0.4);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.immersive .form-group input:focus,
+.immersive .form-group textarea:focus { background: rgba(10, 10, 10, 0.6); }
+
+.immersive .social-link { background: rgba(17, 17, 17, 0.4); }
+
+.immersive .footer {
+  background: rgba(17, 17, 17, 0.45);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.immersive .services-section,
+.immersive .portfolio-section,
+.immersive .contact-section { border-top-color: rgba(255, 255, 255, 0.05); }
+
+/* el texto con degradé usa relleno transparente: la sombra lo oscurecería */
+.immersive .gradient-text { text-shadow: none; }

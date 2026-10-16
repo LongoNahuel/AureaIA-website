@@ -1,22 +1,28 @@
 /* ==========================================================================
-   AureaIA — Fondo inmersivo: un cerebro que se compone, conecta y aprende
+   AureaIA — Fondo inmersivo: los procesos de la IA alrededor de un cerebro
 
-   Al bajar por el sitio, la escena cuenta cómo se arma y entrena una red:
+   Al bajar por el sitio, el cerebro se compone y muestra, con cálculos reales:
 
-     01 Datos          (#inicio)     miles de puntos sueltos que se componen
-                                     en un cerebro
-     02 Sinapsis       (#servicios)  aparecen las neuronas, crecen las sinapsis
-                                     y se calcula Σ w·x + b en cada neurona
-     03 Convolución    (#historias)  un kernel real de YOLOv8n (model.0) recorre
-                                     un cuadro del caso "Detección de Celulares"
-                                     y arma su mapa de salida píxel a píxel
-     04 Entrenamiento  (#contacto)   una red 2-12-12-1 entrena en vivo con Adam
-                                     sobre dos espirales; sus pesos reales
-                                     colorean las sinapsis
+     01 Embeddings       (#inicio)     41 palabras en español con sus vectores
+                                       reales (spaCy, 300 dimensiones), ubicadas
+                                       en 3D por PCA y unidas a sus vecinas por
+                                       similitud coseno
+     02 LLM              (#servicios)  un modelo de lenguaje de bigramas
+                                       entrenado con el texto de este sitio genera
+                                       frases palabra por palabra, con la atención
+                                       (softmax de q·k) de cada palabra nueva sobre
+                                       las anteriores
+     03 Convolución      (#historias)  kernels de 3×3 (Sobel y el de YOLOv8n
+                                       model.0) recorren dígitos escritos a mano,
+                                       con ReLU y max pooling 2×2
+     04 Backpropagation  (#contacto)   una red 2-12-12-1 aprende con 200 ejemplos:
+                                       cada ejemplo hace la pasada hacia adelante,
+                                       se calcula el error y los gradientes vuelven
+                                       hacia atrás; la frontera de decisión cambia
+                                       en vivo
 
-   Todos los números de la barra de telemetría salen de esos cálculos.
-   Three.js con bloom (UnrealBloomPass), niebla y desvanecido cercano.
-   Si no hay WebGL, el sitio sigue usando particles.js como antes.
+   Los datos están en fondo/procesos.json. Three.js con bloom (UnrealBloomPass),
+   niebla y desvanecido cercano. Sin WebGL, el sitio usa particles.js como antes.
    ========================================================================== */
 import * as THREE from 'three';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
@@ -25,12 +31,12 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 
 const ETAPAS = [
-  { id: 'inicio', nombre: 'Datos' },
-  { id: 'servicios', nombre: 'Sinapsis' },
+  { id: 'inicio', nombre: 'Embeddings' },
+  { id: 'servicios', nombre: 'LLM' },
   { id: 'historias', nombre: 'Convolución' },
-  { id: 'contacto', nombre: 'Entrenamiento' },
+  { id: 'contacto', nombre: 'Backpropagation' },
 ];
-const DATOS_RED = 'cnn/red.json';
+const DATOS = 'fondo/procesos.json';
 
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 const coarse = window.matchMedia('(pointer: coarse)').matches;
@@ -41,6 +47,8 @@ const Q = compacto
 
 const FONDO = 0x0a0a0a;
 const CIAN = new THREE.Color(0x00ccff);
+const AZUL = new THREE.Color(0x0066ff);
+const VIOLETA = new THREE.Color(0.55, 0.45, 1.0);
 const BLANCO = new THREE.Color(0xe8f6ff);
 
 // ---------- Utilidades ----------
@@ -104,8 +112,7 @@ function construirCerebro() {
       if (p.y < -3.2) p.y = -3.2 + (p.y + 3.2) * 0.45;           // base más plana
       p.z -= Math.max(0, -u.y) * 1.6 * Math.max(0, u.z);          // lóbulo temporal
       const n = Math.abs(ruido(p.x * 0.42, p.y * 0.42, p.z * 0.42));
-      const cresta = 1 - n;
-      f = Math.pow(cresta, 3);
+      f = Math.pow(1 - n, 3);
       const normal = V(u.x / rx, u.y / R[1], u.z / R[2]).normalize();
       p.addScaledVector(normal, (f - 0.45) * 1.25);
       if (Math.abs(p.x) < 0.45) p.x = Math.sign(p.x || lado) * 0.45; // cisura
@@ -119,7 +126,7 @@ function construirCerebro() {
       const u = V(gauss(), gauss(), gauss()).normalize();
       p = V(u.x * 8.2, -6.3 + u.y * 3.6, -8.6 + u.z * 4.8);
       f = 0.55 + 0.45 * Math.sin(p.y * 7.5) ** 2;
-      p.multiplyScalar(1).addScaledVector(u, (f - 0.5) * 0.35);
+      p.addScaledVector(u, (f - 0.5) * 0.35);
     } else { // tronco encefálico
       const t = rand(), a = rand() * Math.PI * 2, rr = 1.7 * (1 - t * 0.25);
       p = V(Math.cos(a) * rr, -4.5 - t * 9.5, -3.5 - t * 1.6 + Math.sin(a) * rr);
@@ -173,18 +180,19 @@ function construirConexiones(corteza) {
   return { neuronas, sinapsis };
 }
 
-// ---------- Red que entrena en vivo: 2-12-12-1, tanh, Adam, dos espirales ----------
+// ---------- Red que aprende con ejemplos: 2-12-12-1, tanh, Adam, dos espirales ----------
 function crearRedEntrenable() {
   let s = 7;
   const rnd = () => { s = (s * 16807) % 2147483647; return (s - 1) / 2147483646; };
   const g = () => Math.sqrt(-2 * Math.log(rnd() + 1e-9)) * Math.cos(6.2832 * rnd());
   const capas = [2, 12, 12, 1];
-  let W, B, mA, vA, t;
   const X = [], Y = [];
   for (let c = 0; c < 2; c++) for (let i = 0; i < 100; i++) {
     const r = i / 100 * 0.9 + 0.08, a = i / 100 * 3.2 * Math.PI + c * Math.PI;
     X.push([r * Math.cos(a) + g() * 0.03, r * Math.sin(a) + g() * 0.03]); Y.push(c);
   }
+  const orden = X.map((_, i) => i);
+  let W, B, mA, vA, t, cursor, vistos;
   function reiniciar() {
     s = 7;
     W = []; B = [];
@@ -196,7 +204,8 @@ function crearRedEntrenable() {
     const P = [...W, ...B];
     mA = P.map(p => new Float64Array(p.length));
     vA = P.map(p => new Float64Array(p.length));
-    t = 0;
+    t = 0; cursor = 0; vistos = 0;
+    for (let i = orden.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [orden[i], orden[j]] = [orden[j], orden[i]]; }
   }
   function forward(x) {
     const a = [x], z = [];
@@ -212,35 +221,51 @@ function crearRedEntrenable() {
     }
     return { a, z };
   }
-  function paso(lr = 0.01) {
-    const gW = W.map(w => new Float64Array(w.length)), gB = B.map(b => new Float64Array(b.length));
-    let loss = 0, ok = 0;
-    for (let k = 0; k < X.length; k++) {
-      const { a } = forward(X[k]), y = Y[k], p = a[3][0];
-      loss += -(y * Math.log(p + 1e-9) + (1 - y) * Math.log(1 - p + 1e-9));
-      ok += (p > 0.5) === (y === 1) ? 1 : 0;
-      let d = [p - y];
-      for (let l = 2; l >= 0; l--) {
-        const n = capas[l], m = capas[l + 1], dn = new Float64Array(n);
-        for (let j = 0; j < m; j++) {
-          gB[l][j] += d[j];
-          for (let i = 0; i < n; i++) { gW[l][i * m + j] += d[j] * a[l][i]; dn[i] += W[l][i * m + j] * d[j]; }
-        }
-        if (l > 0) for (let i = 0; i < n; i++) dn[i] *= 1 - a[l][i] * a[l][i];
-        d = dn;
+  // backpropagation de un ejemplo: suma sus gradientes en gW y gB
+  function backward(k, gW, gB) {
+    const { a } = forward(X[k]), y = Y[k], p = a[3][0];
+    let d = [p - y];
+    for (let l = 2; l >= 0; l--) {
+      const n = capas[l], m = capas[l + 1], dn = new Float64Array(n);
+      for (let j = 0; j < m; j++) {
+        gB[l][j] += d[j];
+        for (let i = 0; i < n; i++) { gW[l][i * m + j] += d[j] * a[l][i]; dn[i] += W[l][i * m + j] * d[j]; }
       }
+      if (l > 0) for (let i = 0; i < n; i++) dn[i] *= 1 - a[l][i] * a[l][i];
+      d = dn;
     }
-    t++;
+    return p;
+  }
+  const ceros = () => [W.map(w => new Float64Array(w.length)), B.map(b => new Float64Array(b.length))];
+  function paso(lr = 0.03, lote = 50) { // un lote de 50 ejemplos, Adam
+    const [gW, gB] = ceros();
+    for (let i = 0; i < lote; i++) { backward(orden[cursor], gW, gB); cursor = (cursor + 1) % orden.length; }
+    vistos += lote; t++;
     const P = [...W, ...B], G = [...gW, ...gB];
     P.forEach((p, q) => {
       for (let i = 0; i < p.length; i++) {
-        const gr = G[q][i] / X.length;
+        const gr = G[q][i] / lote;
         mA[q][i] = 0.9 * mA[q][i] + 0.1 * gr;
         vA[q][i] = 0.999 * vA[q][i] + 0.001 * gr * gr;
         p[i] -= lr * (mA[q][i] / (1 - 0.9 ** t)) / (Math.sqrt(vA[q][i] / (1 - 0.999 ** t)) + 1e-8);
       }
     });
+  }
+  function evaluar() { // pérdida y precisión sobre los 200 ejemplos
+    let loss = 0, ok = 0;
+    for (let k = 0; k < X.length; k++) {
+      const p = forward(X[k]).a[3][0], y = Y[k];
+      loss += -(y * Math.log(p + 1e-9) + (1 - y) * Math.log(1 - p + 1e-9));
+      ok += (p > 0.5) === (y === 1) ? 1 : 0;
+    }
     return { loss: loss / X.length, acc: ok / X.length };
+  }
+  function ejemplo(k) { // pasada hacia adelante y gradiente de un solo ejemplo
+    const [gW, gB] = ceros();
+    const p = backward(k, gW, gB);
+    let n2 = 0;
+    for (const w of gW) for (const v of w) n2 += v * v;
+    return { x: X[k], y: Y[k], p, error: Math.abs(p - Y[k]), grad: Math.sqrt(n2) };
   }
   function pesos(out) { // los 180 pesos normalizados por el mayor valor absoluto
     let k = 0, max = 1e-6;
@@ -249,7 +274,43 @@ function crearRedEntrenable() {
     return out;
   }
   reiniciar();
-  return { X, forward, paso, pesos, reiniciar, get epoca() { return t; }, get W() { return W; }, get B() { return B; } };
+  return {
+    X, Y, forward, paso, evaluar, ejemplo, pesos, reiniciar,
+    get epoca() { return Math.floor(vistos / X.length); }, get pasos() { return t; },
+  };
+}
+
+// ---------- Dígitos escritos a mano (trazos) para la convolución ----------
+const DIGITOS = {
+  7: [[['M', .24, .22], ['L', .76, .22], ['L', .46, .84]], [['M', .36, .52], ['L', .66, .52]]],
+  2: [[['M', .28, .34], ['Q', .5, .08, .72, .3], ['Q', .78, .46, .3, .82], ['L', .76, .8]]],
+  3: [[['M', .3, .24], ['Q', .72, .08, .66, .4], ['Q', .62, .5, .44, .5]], [['M', .44, .5], ['Q', .78, .52, .68, .72], ['Q', .56, .92, .27, .78]]],
+  4: [[['M', .62, .84], ['L', .62, .18], ['L', .24, .62], ['L', .78, .62]]],
+  5: [[['M', .72, .2], ['L', .36, .2], ['L', .32, .48], ['Q', .74, .38, .7, .66], ['Q', .62, .9, .28, .78]]],
+};
+function dibujarDigito(d, jitter) {
+  const N = 112, c = document.createElement('canvas');
+  c.width = c.height = N;
+  const g = c.getContext('2d');
+  g.fillStyle = '#000'; g.fillRect(0, 0, N, N);
+  g.strokeStyle = '#fff'; g.lineWidth = N * 0.1; g.lineCap = 'round'; g.lineJoin = 'round';
+  const j = () => (jitter() - 0.5) * 0.06;
+  for (const trazo of DIGITOS[d]) {
+    g.beginPath();
+    for (const [op, ...v] of trazo) {
+      const p = v.map(x => (x + j()) * N);
+      if (op === 'M') g.moveTo(p[0], p[1]);
+      else if (op === 'L') g.lineTo(p[0], p[1]);
+      else g.quadraticCurveTo(p[0], p[1], p[2], p[3]);
+    }
+    g.stroke();
+  }
+  const s = document.createElement('canvas');
+  s.width = s.height = 28;
+  const gs = s.getContext('2d', { willReadFrequently: true });
+  gs.drawImage(c, 0, 0, 28, 28);
+  const px = gs.getImageData(0, 0, 28, 28).data;
+  return Float32Array.from({ length: 784 }, (_, i) => px[i * 4] / 255);
 }
 
 // ---------- Shaders ----------
@@ -257,8 +318,9 @@ const puntosVS = /* glsl */`
 attribute vec3 aT;
 attribute vec3 aSeed;
 attribute float aFold;
-uniform float uTime, uCompose, uPixel, uSize, uOpacity, uFog, uAspect, uWaveZ, uWaveOn, uTrain, uNeuron;
+uniform float uTime, uCompose, uPixel, uSize, uOpacity, uFog, uAspect, uWaveZ, uWaveOn, uNeuron;
 uniform vec2 uMouse;
+uniform vec3 uWaveColor;
 varying vec3 vColor;
 varying float vAlpha;
 void main() {
@@ -284,9 +346,10 @@ void main() {
   gl_PointSize = uSize * uPixel * (0.6 + lum * 0.8 + onda * 1.4 + uNeuron * 1.6) * (300.0 / depth) * (1.0 + g * 0.8);
   gl_Position = clip;
 
-  vec3 azul = vec3(0.0, 0.4, 1.0), cian = vec3(0.0, 0.8, 1.0), blanco = vec3(0.85, 0.95, 1.0);
+  vec3 azul = vec3(0.0, 0.4, 1.0), cian = vec3(0.0, 0.8, 1.0);
   vec3 c = mix(azul, cian, clamp(aFold * 0.8 + aSeed.y * 0.2, 0.0, 1.0));
-  vColor = mix(c, blanco, clamp(onda * 0.85 + g * 0.4 + uNeuron * 0.45 + uTrain * 0.2 * aFold, 0.0, 1.0));
+  c = mix(c, uWaveColor, clamp(onda * 0.85, 0.0, 1.0));
+  vColor = mix(c, vec3(0.85, 0.95, 1.0), clamp(g * 0.4 + uNeuron * 0.45, 0.0, 1.0));
   float fog = exp(-pow(uFog * depth, 2.0));
   vAlpha = (0.16 + lum * 0.55 + onda * 0.7 + uNeuron * 0.45) * mix(0.5, 1.0, t) * uOpacity * fog * smoothstep(2.5, 9.0, depth);
 }`;
@@ -364,22 +427,53 @@ vec3 cmap(float v) {
   return mix(c, vec3(0.8, 0.95, 1.0), smoothstep(0.78, 1.0, v));
 }
 void main() {
-  // el mapa de salida se escribe con la fila 0 arriba
-  vec4 tex = texture2D(uMap, uModo < 0.5 ? vec2(vUv.x, 1.0 - vUv.y) : vUv);
+  // los mapas se escriben con la fila 0 arriba; R = valor, G = ya calculado
+  vec4 tex = texture2D(uMap, vec2(vUv.x, 1.0 - vUv.y));
   vec3 col; float a;
-  if (uModo < 0.5) {   // mapa de salida: R = valor, G = ya calculado
+  if (uModo < 0.5) {
     bool listo = tex.g > 0.5;
     col = listo ? cmap(tex.r) : vec3(0.0, 0.25, 0.6);
-    a = listo ? 0.25 + 0.75 * tex.r : 0.05;
-  } else {             // imagen de entrada
-    col = tex.rgb; a = 0.92;
+    a = listo ? 0.2 + 0.8 * tex.r : 0.05;
+  } else {             // entrada en escala de grises
+    col = mix(vec3(0.0, 0.05, 0.12), vec3(0.85, 0.95, 1.0), tex.r);
+    a = 0.25 + 0.7 * tex.r;
   }
-  float borde = 1.0 - smoothstep(0.0, 0.006, min(min(vUv.x, 1.0 - vUv.x), min(vUv.y, 1.0 - vUv.y)));
+  float borde = 1.0 - smoothstep(0.0, 0.012, min(min(vUv.x, 1.0 - vUv.x), min(vUv.y, 1.0 - vUv.y)));
   col = mix(col, vec3(0.0, 0.604, 1.0), borde * 0.7);
   a = max(a, borde * 0.7);
   gl_FragColor = vec4(col, a * uOpacity * exp(-pow(uFog * vProf, 2.0)));
   #include <colorspace_fragment>
 }`;
+
+// ---------- Etiquetas de texto en 3D ----------
+function crearEtiqueta(alto = 1.1) {
+  const c = document.createElement('canvas');
+  c.width = 512; c.height = 96;
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 4;
+  const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, opacity: 0, fog: false });
+  const s = new THREE.Sprite(mat);
+  s.userData = { c, tex, alto, texto: null };
+  s.scale.set(alto * 512 / 96, alto, 1);
+  return s;
+}
+function escribir(sprite, texto, color = '#e8f6ff', fuente = '500 52px "IBM Plex Mono", Consolas, monospace') {
+  const u = sprite.userData;
+  const clave = texto + color;
+  if (u.texto === clave) return;
+  u.texto = clave;
+  const g = u.c.getContext('2d');
+  g.clearRect(0, 0, 512, 96);
+  g.font = fuente;
+  g.textBaseline = 'middle';
+  g.textAlign = 'center';
+  g.fillStyle = color;
+  g.shadowColor = 'rgba(0, 204, 255, 0.55)';
+  g.shadowBlur = 14;
+  g.fillText(texto, 256, 50);
+  u.tex.needsUpdate = true;
+}
 
 // ---------- Escena ----------
 function iniciar() {
@@ -403,6 +497,7 @@ function iniciar() {
   // fondo como color de escena: pasa bien por el espacio de color del compositor
   scene.background = new THREE.Color(FONDO);
   const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 600);
+  scene.add(camera); // el panel de entrenamiento va pegado a la cámara
   const ajustarFov = () => { camera.fov = camera.aspect < 1 ? 66 : 50; camera.updateProjectionMatrix(); };
   ajustarFov();
 
@@ -421,16 +516,15 @@ function iniciar() {
   const comunes = {
     uTime: { value: 0 }, uPixel: { value: pr }, uFog: { value: Q.niebla },
     uAspect: { value: window.innerWidth / window.innerHeight }, uMouse: { value: new THREE.Vector2(9, 9) },
-    uWaveZ: { value: 0 }, uWaveOn: { value: 0 }, uTrain: { value: 0 },
+    uWaveZ: { value: 0 }, uWaveOn: { value: 0 }, uWaveColor: { value: new THREE.Color(0.85, 0.95, 1.0) },
   };
 
   // Puntos del cerebro
   const { T, S, F, corteza } = construirCerebro();
-  const seed = Float32Array.from({ length: Q.puntos * 3 }, () => rand());
   const gp = new THREE.BufferGeometry();
   gp.setAttribute('position', new THREE.BufferAttribute(S, 3));
   gp.setAttribute('aT', new THREE.BufferAttribute(T, 3));
-  gp.setAttribute('aSeed', new THREE.BufferAttribute(seed, 3));
+  gp.setAttribute('aSeed', new THREE.BufferAttribute(Float32Array.from({ length: Q.puntos * 3 }, () => rand()), 3));
   gp.setAttribute('aFold', new THREE.BufferAttribute(F, 1));
   gp.boundingSphere = new THREE.Sphere(V(0, 0, 0), 300);
   const uPuntos = { ...comunes, uCompose: { value: 0 }, uSize: { value: compacto ? 0.3 : 0.26 }, uOpacity: { value: 0 }, uNeuron: { value: 0 } };
@@ -455,7 +549,7 @@ function iniciar() {
     transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
   })));
 
-  // Sinapsis que crecen, coloreadas por los pesos reales de la red que entrena
+  // Sinapsis que crecen, coloreadas por los pesos reales de la red que aprende
   const nS = sinapsis.length;
   const sa = new Float32Array(nS * 6), sb = new Float32Array(nS * 6), sl = new Float32Array(nS * 2), sn = new Float32Array(nS * 2), si = new Float32Array(nS * 2);
   sinapsis.forEach((s, k) => {
@@ -477,7 +571,7 @@ function iniciar() {
     transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
   })));
 
-  // Pulsos: hacia adelante al calcular, hacia atrás al entrenar (retropropagación)
+  // Pulsos: hacia adelante (cian) y hacia atrás (violeta, backpropagation)
   const pa = new Float32Array(Q.pulsos * 3), pb = new Float32Array(Q.pulsos * 3), pp = new Float32Array(Q.pulsos * 3);
   for (let i = 0; i < Q.pulsos; i++) {
     const s = sinapsis[Math.floor(rand() * nS)];
@@ -498,120 +592,300 @@ function iniciar() {
     transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
   })));
 
-  // ---------- Convolución real: kernel de YOLOv8n model.0 sobre un cuadro real ----------
-  const conv = { listo: false, k: 0, pausa: 0, ultimo: null };
-  const grupoConv = new THREE.Group();
-  grupoConv.position.set(0, 5, 22);
-  scene.add(grupoConv);
-  const CELDA = 0.115;
-  let GW = 64, GH = 36, entradaPx = null, salida = null, salidaTex = null, kernelInfo = null;
-  const uPlanos = [];
-  const kernelMat = new THREE.LineBasicMaterial({ color: BLANCO, transparent: true, opacity: 0, toneMapped: false });
-  const rayosMat = new THREE.LineBasicMaterial({ color: CIAN, transparent: true, opacity: 0, toneMapped: false });
-  const kernelGeo = new THREE.BufferGeometry();
-  const rayosGeo = new THREE.BufferGeometry();
-  kernelGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(16 * 3), 3));
-  rayosGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(16 * 3), 3));
-  grupoConv.add(new THREE.LineSegments(kernelGeo, kernelMat));
-  grupoConv.add(new THREE.LineSegments(rayosGeo, rayosMat));
+  // Líneas con transparencia por vértice (vecinos, atención)
+  const crearLineas = (maxSeg) => {
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(maxSeg * 6), 3));
+    g.setAttribute('color', new THREE.BufferAttribute(new Float32Array(maxSeg * 8), 4));
+    g.setDrawRange(0, 0);
+    const m = new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false });
+    const l = new THREE.LineSegments(g, m);
+    l.frustumCulled = false;
+    scene.add(l);
+    return { g, m, n: 0, max: maxSeg };
+  };
+  const linea = (L, a, b, c, alfa) => {
+    if (L.n >= L.max) return;
+    L.g.attributes.position.array.set([a.x, a.y, a.z, b.x, b.y, b.z], L.n * 6);
+    L.g.attributes.color.array.set([c.r, c.g, c.b, alfa, c.r, c.g, c.b, alfa], L.n * 8);
+    L.n++;
+  };
+  const cerrar = L => {
+    L.g.setDrawRange(0, L.n * 2);
+    L.g.attributes.position.needsUpdate = true;
+    L.g.attributes.color.needsUpdate = true;
+    L.n = 0;
+  };
 
-  async function prepararConvolucion() {
-    const datos = await fetch(DATOS_RED).then(r => r.json());
-    kernelInfo = datos.kernel;
-    [GW, GH] = datos.grilla;
-    const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = datos.fuente.imagen; });
+  // ---------- 01 · Embeddings ----------
+  const emb = { listo: false, palabras: [], activa: 0, t: 0 };
+  const lineasEmb = crearLineas(260);
+  const vectorSprite = (() => { // barras de las primeras 8 dimensiones de la palabra activa
     const c = document.createElement('canvas');
-    c.width = GW; c.height = GH;
-    const g = c.getContext('2d', { willReadFrequently: true });
-    g.drawImage(img, 0, 0, GW, GH);
-    const d = g.getImageData(0, 0, GW, GH).data;
-    entradaPx = new Float32Array(GW * GH * 3);
-    for (let i = 0; i < GW * GH; i++) for (let ch = 0; ch < 3; ch++) entradaPx[i * 3 + ch] = d[i * 4 + ch] / 255;
-    // salida completa, para conocer la escala; se revela píxel a píxel
-    salida = new Float32Array(GW * GH);
-    for (let y = 0; y < GH; y++) for (let x = 0; x < GW; x++) salida[y * GW + x] = convolucionar(x, y).silu;
-    const orden = Array.from(salida).sort((a, b) => a - b);
-    conv.escala = orden[Math.floor(orden.length * 0.99)] || 1;
-    salidaTex = new THREE.DataTexture(new Uint8Array(GW * GH * 4), GW, GH, THREE.RGBAFormat);
-    salidaTex.magFilter = THREE.NearestFilter;
-    salidaTex.needsUpdate = true;
-    const entradaTex = new THREE.Texture(img);
-    entradaTex.colorSpace = THREE.SRGBColorSpace;
-    entradaTex.needsUpdate = true;
-    const ancho = GW * CELDA, alto = GH * CELDA;
-    const plano = (map, modo, x) => {
-      const u = { uMap: { value: map }, uOpacity: { value: 0 }, uModo: { value: modo }, uFog: comunes.uFog };
-      uPlanos.push(u);
-      const m = new THREE.Mesh(new THREE.PlaneGeometry(ancho, alto), new THREE.ShaderMaterial({
-        uniforms: u, vertexShader: planoVS, fragmentShader: planoFS, transparent: true, depthWrite: false,
-      }));
-      m.position.x = x;
-      grupoConv.add(m);
-    };
-    conv.ancho = ancho; conv.alto = alto; conv.sep = ancho / 2 + 1.6;
-    plano(entradaTex, 1, -conv.sep);
-    plano(salidaTex, 0, conv.sep);
-    conv.listo = true;
-  }
+    c.width = 512; c.height = 128;
+    const tex = new THREE.CanvasTexture(c);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, opacity: 0, fog: false }));
+    s.scale.set(5.2, 1.3, 1);
+    s.userData = { c, tex };
+    scene.add(s);
+    return s;
+  })();
+  const dibujarVector = v => {
+    const { c, tex } = vectorSprite.userData, g = c.getContext('2d');
+    g.clearRect(0, 0, 512, 128);
+    const max = Math.max(...v.map(Math.abs), 1e-6);
+    v.forEach((x, i) => {
+      const h = Math.abs(x) / max * 40, xx = 18 + i * 44;
+      g.fillStyle = x >= 0 ? '#00ccff' : '#8c73ff';
+      g.fillRect(xx, x >= 0 ? 56 - h : 56, 30, h);
+    });
+    g.fillStyle = 'rgba(232,246,255,0.75)';
+    g.font = '500 30px "IBM Plex Mono", Consolas, monospace';
+    g.textBaseline = 'middle';
+    g.fillText('… 300d', 372, 56);
+    g.fillStyle = 'rgba(0,204,255,0.35)';
+    g.fillRect(14, 56, 344, 1);
+    tex.needsUpdate = true;
+  };
 
-  function convolucionar(x, y) {
-    const w = kernelInfo.pesos;
-    let z = kernelInfo.bias;
-    for (let ch = 0; ch < 3; ch++) for (let ky = 0; ky < 3; ky++) for (let kx = 0; kx < 3; kx++) {
-      const yy = y + ky - 1, xx = x + kx - 1;
-      if (yy < 0 || yy >= GH || xx < 0 || xx >= GW) continue;   // padding con ceros
-      z += w[ch * 9 + ky * 3 + kx] * entradaPx[(yy * GW + xx) * 3 + ch];
+  // ---------- 02 · LLM ----------
+  const llm = { listo: false, tokens: [], t: 0, espera: 0, primera: true, ultima: null };
+  const lineasAtencion = crearLineas(11 * 18);
+  const ranuras = [];
+  const spritesTok = Array.from({ length: 11 }, () => { const s = crearEtiqueta(1.25); scene.add(s); return s; });
+  {
+    // arco de 11 posiciones sobre el cerebro, en el plano que mira a la cámara de esa etapa
+    const n = V(0.94, 0.23, -0.28).normalize();
+    const e1 = V(0, 1, 0).cross(n).normalize();
+    const e2 = n.clone().cross(e1).normalize();
+    const c = V(0, 2, 0).addScaledVector(n, 9).add(V(0, 2.5, 0)); // delante y arriba del cerebro
+    for (let k = 0; k < 11; k++) {
+      const a = THREE.MathUtils.degToRad(160 - k * 14);
+      ranuras.push(c.clone().addScaledVector(e1, Math.cos(a) * 12).addScaledVector(e2, Math.sin(a) * 8));
     }
-    return { z, silu: z / (1 + Math.exp(-z)) };
+    llm.centro = V(0, 2, 0); // las curvas de atención pasan por el cerebro
   }
+  const atencion = (q, ks) => { // softmax(q·k · 4) sobre las palabras anteriores, vectores normalizados de 32 dimensiones
+    const sc = ks.map(k => { let d = 0; for (let i = 0; i < q.length; i++) d += q[i] * k[i]; return d * 4; });
+    const m = Math.max(...sc), e = sc.map(x => Math.exp(x - m)), s = e.reduce((a, b) => a + b, 0);
+    return e.map(x => x / s);
+  };
 
+  // ---------- 03 · Convolución ----------
+  const conv = { listo: false, k: 0, pausa: 0, pasada: -1, ultimo: null };
+  const grupoConv = new THREE.Group();
+  grupoConv.position.set(0, 6, 22);
+  scene.add(grupoConv);
+  const CELDA = 0.17, NIN = 28, NOUT = 26, NPOOL = 13;
+  const LADO_IN = NIN * CELDA, LADO_OUT = NOUT * CELDA, SEP = 1.4;
+  const X_IN = -(LADO_IN / 2 + SEP + LADO_OUT / 2), X_POOL = LADO_OUT / 2 + SEP + LADO_OUT / 2;
+  const texData = n => { const t = new THREE.DataTexture(new Uint8Array(n * n * 4), n, n, THREE.RGBAFormat); t.magFilter = THREE.NearestFilter; t.needsUpdate = true; return t; };
+  const texIn = texData(NIN), texOut = texData(NOUT), texPool = texData(NPOOL);
+  const uPlanos = [];
+  const plano = (map, modo, x, lado) => {
+    const u = { uMap: { value: map }, uOpacity: { value: 0 }, uModo: { value: modo }, uFog: comunes.uFog };
+    uPlanos.push(u);
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(lado, lado), new THREE.ShaderMaterial({
+      uniforms: u, vertexShader: planoVS, fragmentShader: planoFS, transparent: true, depthWrite: false,
+    }));
+    m.position.x = x;
+    grupoConv.add(m);
+  };
+  plano(texIn, 1, X_IN, LADO_IN);
+  plano(texOut, 0, 0, LADO_OUT);
+  plano(texPool, 0, X_POOL, LADO_OUT);
+  const etiquetasConv = [
+    [X_IN, 'entrada 28×28'], [0, 'convolución → 26×26'], [X_POOL, 'max pooling → 13×13'],
+  ].map(([x, t]) => { const s = crearEtiqueta(0.62); s.position.set(x, -LADO_OUT / 2 - 0.75, 0); escribir(s, t, 'rgba(232,246,255,0.85)'); grupoConv.add(s); return s; });
+  const etiquetaKernel = crearEtiqueta(0.7);
+  etiquetaKernel.position.set(X_IN, LADO_IN / 2 + 0.85, 0);
+  grupoConv.add(etiquetaKernel);
+  const marcoMat = new THREE.LineBasicMaterial({ color: BLANCO, transparent: true, opacity: 0, toneMapped: false, fog: false });
+  const rayosMat = new THREE.LineBasicMaterial({ color: CIAN, transparent: true, opacity: 0, toneMapped: false, fog: false });
+  const marcoGeo = new THREE.BufferGeometry(), rayosGeo = new THREE.BufferGeometry();
+  marcoGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(16 * 3), 3));
+  rayosGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(16 * 3), 3));
+  grupoConv.add(new THREE.LineSegments(marcoGeo, marcoMat), new THREE.LineSegments(rayosGeo, rayosMat));
+  let entrada = null, salida = null, kernelActual = null, kernels = [];
+  const ordenDigitos = [7, 2, 3, 5, 4];
+  const jitter = mulberry32(42);
+
+  function nuevaPasada() {
+    conv.pasada++;
+    conv.k = 0; conv.pausa = 0;
+    kernelActual = kernels[conv.pasada % kernels.length];
+    entrada = dibujarDigito(ordenDigitos[conv.pasada % ordenDigitos.length], jitter);
+    const din = texIn.image.data;
+    for (let i = 0; i < NIN * NIN; i++) { din[i * 4] = entrada[i] * 255; din[i * 4 + 1] = 255; }
+    texIn.needsUpdate = true;
+    salida = new Float32Array(NOUT * NOUT);
+    let max = 1e-6;
+    for (let y = 0; y < NOUT; y++) for (let x = 0; x < NOUT; x++) {
+      const v = Math.max(0, convolucionar(x, y)); // ReLU
+      salida[y * NOUT + x] = v; max = Math.max(max, v);
+    }
+    conv.escala = max;
+    texOut.image.data.fill(0); texOut.needsUpdate = true;
+    texPool.image.data.fill(0); texPool.needsUpdate = true;
+    escribir(etiquetaKernel, `kernel ${kernelActual.nombre}`, '#00ccff', '500 34px "IBM Plex Mono", Consolas, monospace');
+  }
+  function convolucionar(x, y) { // ventana válida: entrada (x..x+2, y..y+2)
+    let z = 0;
+    for (let ky = 0; ky < 3; ky++) for (let kx = 0; kx < 3; kx++) z += kernelActual.k[ky][kx] * entrada[(y + ky) * NIN + x + kx];
+    return z;
+  }
   function avanzarConvolucion(dt) {
     if (!conv.listo) return;
-    const datos = salidaTex.image.data;
-    if (conv.k >= GW * GH) {
+    if (conv.k >= NOUT * NOUT) {
       conv.pausa += dt;
-      if (conv.pausa > 2.2) { conv.k = 0; conv.pausa = 0; datos.fill(0); salidaTex.needsUpdate = true; }
+      if (conv.pausa > 1.8) nuevaPasada();
       return;
     }
-    const n = reduceMotion ? GW * GH : Math.max(1, Math.round(GW * GH / 9 * dt)); // ~9 s por pasada
-    for (let i = 0; i < n && conv.k < GW * GH; i++, conv.k++) {
-      const v = clamp(salida[conv.k] / conv.escala, 0, 1);
-      datos[conv.k * 4] = v * 255;
-      datos[conv.k * 4 + 1] = 255;
+    const dOut = texOut.image.data, dPool = texPool.image.data;
+    const n = reduceMotion ? NOUT * NOUT : Math.max(1, Math.round(NOUT * NOUT / 7 * dt)); // ~7 s por pasada
+    for (let i = 0; i < n && conv.k < NOUT * NOUT; i++, conv.k++) {
+      dOut[conv.k * 4] = salida[conv.k] / conv.escala * 255;
+      dOut[conv.k * 4 + 1] = 255;
+      const x = conv.k % NOUT, y = Math.floor(conv.k / NOUT);
+      if (y % 2 === 1 && x % 2 === 1) { // completa una ventana 2×2 → max pooling
+        const px = (x - 1) / 2, py = (y - 1) / 2;
+        const m = Math.max(salida[(y - 1) * NOUT + x - 1], salida[(y - 1) * NOUT + x], salida[y * NOUT + x - 1], salida[y * NOUT + x]);
+        dPool[(py * NPOOL + px) * 4] = m / conv.escala * 255;
+        dPool[(py * NPOOL + px) * 4 + 1] = 255;
+      }
     }
-    salidaTex.needsUpdate = true;
-    const k = Math.min(conv.k, GW * GH - 1), x = k % GW, y = Math.floor(k / GW);
-    conv.ultimo = { x, y, ...convolucionar(x, y) };
-    // marco del kernel 3×3 sobre la entrada y rayos hacia el píxel de salida
-    const px = (gx, lado) => lado * conv.sep - conv.ancho / 2 + gx * CELDA;
-    const py = gy => conv.alto / 2 - gy * CELDA;
-    const kp = kernelGeo.attributes.position.array;
+    texOut.needsUpdate = true; texPool.needsUpdate = true;
+    const k = Math.min(conv.k, NOUT * NOUT - 1), x = k % NOUT, y = Math.floor(k / NOUT);
+    const z = convolucionar(x, y);
+    conv.ultimo = { x, y, z, relu: Math.max(0, z), kernel: kernelActual.nombre };
+    // marco 3×3 sobre la entrada y rayos hacia el píxel de salida
+    const pxIn = gx => X_IN - LADO_IN / 2 + gx * CELDA, pyIn = gy => LADO_IN / 2 - gy * CELDA;
+    const pxOut = gx => -LADO_OUT / 2 + gx * CELDA, pyOut = gy => LADO_OUT / 2 - gy * CELDA;
+    const kp = marcoGeo.attributes.position.array;
     let o = 0;
     for (let i = 0; i <= 3; i++) {
-      kp.set([px(x - 1 + i, -1), py(y - 1), 0.02, px(x - 1 + i, -1), py(y + 2), 0.02], o); o += 6;
-      kp.set([px(x - 1, -1), py(y - 1 + i), 0.02, px(x + 2, -1), py(y - 1 + i), 0.02], o); o += 6;
+      kp.set([pxIn(x + i), pyIn(y), 0.02, pxIn(x + i), pyIn(y + 3), 0.02], o); o += 6;
+      kp.set([pxIn(x), pyIn(y + i), 0.02, pxIn(x + 3), pyIn(y + i), 0.02], o); o += 6;
     }
-    kernelGeo.attributes.position.needsUpdate = true;
-    const rp = rayosGeo.attributes.position.array;
-    const ox = px(x + 0.5, 1), oy = py(y + 0.5);
+    marcoGeo.attributes.position.needsUpdate = true;
+    const rp = rayosGeo.attributes.position.array, ox = pxOut(x + 0.5), oy = pyOut(y + 0.5);
     o = 0;
-    [[x - 1, y - 1], [x + 2, y - 1], [x + 2, y + 2], [x - 1, y + 2]].forEach(([gx, gy]) => {
-      rp.set([px(gx, -1), py(gy), 0.02, ox, oy, 0.02], o); o += 6;
-    });
-    // contorno del píxel de salida
+    [[x, y], [x + 3, y], [x + 3, y + 3], [x, y + 3]].forEach(([gx, gy]) => { rp.set([pxIn(gx), pyIn(gy), 0.02, ox, oy, 0.02], o); o += 6; });
     const esq = [[x, y], [x + 1, y], [x + 1, y + 1], [x, y + 1]];
-    esq.forEach(([gx, gy], i) => {
-      const [hx, hy] = esq[(i + 1) % 4];
-      rp.set([px(gx, 1), py(gy), 0.03, px(hx, 1), py(hy), 0.03], o); o += 6;
-    });
+    esq.forEach(([gx, gy], i) => { const [hx, hy] = esq[(i + 1) % 4]; rp.set([pxOut(gx), pyOut(gy), 0.03, pxOut(hx), pyOut(hy), 0.03], o); o += 6; });
     rayosGeo.attributes.position.needsUpdate = true;
   }
 
-  // ---------- Red que entrena ----------
+  // ---------- 04 · Backpropagation y entrenamiento por ejemplos ----------
   const red = crearRedEntrenable();
   red.pesos(pesos);
   const historial = [];
-  let entrenando = false, ultimaMetrica = { loss: NaN, acc: 0 };
+  let metrica = red.evaluar(), entrenando = false;
+  const ej = { k: 0, t: 0, dato: null, orden: 0 };
+  const panel = (() => { // frontera de decisión y los 200 ejemplos, pegado a la cámara
+    const c = document.createElement('canvas');
+    c.width = c.height = 320;
+    const tex = new THREE.CanvasTexture(c);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: 0, depthWrite: false, depthTest: false, fog: false }));
+    m.renderOrder = 10;
+    camera.add(m);
+    return { c, tex, m, t: 0 };
+  })();
+  function dibujarPanel() {
+    const g = panel.c.getContext('2d'), N = 40, L = 320, A = 26;
+    g.clearRect(0, 0, L, L);
+    g.fillStyle = 'rgba(10, 12, 18, 0.55)';
+    g.fillRect(0, 0, L, L);
+    const area = L - A - 8, ox = 4, oy = A + 4, cel = area / N;
+    for (let gy = 0; gy < N; gy++) for (let gx = 0; gx < N; gx++) {
+      const x = (gx + 0.5) / N * 2.2 - 1.1, y = 1.1 - (gy + 0.5) / N * 2.2;
+      const p = red.forward([x, y]).a[3][0], f = Math.abs(p - 0.5) * 2;
+      g.fillStyle = p > 0.5 ? `rgba(0, 204, 255, ${0.08 + 0.32 * f})` : `rgba(140, 115, 255, ${0.08 + 0.32 * f})`;
+      g.fillRect(ox + gx * cel, oy + gy * cel, cel + 0.5, cel + 0.5);
+    }
+    const P = ([x, y]) => [ox + (x + 1.1) / 2.2 * area, oy + (1.1 - y) / 2.2 * area];
+    red.X.forEach((x, k) => {
+      const [px, py] = P(x);
+      g.fillStyle = red.Y[k] ? '#00ccff' : '#8c73ff';
+      g.beginPath(); g.arc(px, py, 2.4, 0, Math.PI * 2); g.fill();
+    });
+    if (ej.dato) {
+      const [px, py] = P(ej.dato.x);
+      g.strokeStyle = '#ffffff'; g.lineWidth = 2;
+      g.beginPath(); g.arc(px, py, 7, 0, Math.PI * 2); g.stroke();
+    }
+    g.fillStyle = 'rgba(232, 246, 255, 0.85)';
+    g.font = '500 15px "IBM Plex Mono", Consolas, monospace';
+    g.textBaseline = 'middle';
+    g.fillText(`200 ejemplos · época ${red.epoca}`, 8, 14);
+    g.strokeStyle = 'rgba(0, 204, 255, 0.5)'; g.lineWidth = 1;
+    g.strokeRect(0.5, 0.5, L - 1, L - 1);
+    panel.tex.needsUpdate = true;
+  }
+
+  // ---------- Carga de datos ----------
+  async function cargar() {
+    const d = await fetch(DATOS).then(r => r.json());
+    if (document.fonts && document.fonts.load) await document.fonts.load('500 52px "IBM Plex Mono"').catch(() => {});
+
+    // embeddings: sprite por palabra en su posición PCA (alrededor del cerebro)
+    const centro = V(4, 1, -2.5); // un poco hacia la derecha de la cámara de inicio
+    emb.palabras = d.embeddings.palabras.map(p => {
+      const s = crearEtiqueta(0.95);
+      escribir(s, p.w, 'rgba(232, 246, 255, 0.9)', '500 46px "Inter", -apple-system, sans-serif');
+      const destino = centro.clone().add(V(p.p[0] * 0.62, p.p[1] * 0.8, p.p[2] * 0.7));
+      const origen = destino.clone().multiplyScalar(2.6).add(V(gauss() * 8, gauss() * 6, 20 + gauss() * 8));
+      s.position.copy(origen);
+      scene.add(s);
+      return { ...p, s, destino, origen };
+    });
+    const idx = Object.fromEntries(emb.palabras.map((p, i) => [p.w, i]));
+    emb.vecinosIdx = emb.palabras.map(p => p.vecinos.map(([w, c]) => [idx[w], c]));
+    emb.listo = true;
+
+    // LLM
+    llm.vocab = d.llm.vocab;
+    llm.indice = Object.fromEntries(d.llm.vocab.map((w, i) => [w, i]));
+    llm.vec = d.llm.vec;
+    llm.bigramas = d.llm.bigramas;
+    llm.inicios = d.llm.inicios;
+    llm.listo = true;
+
+    // convolución
+    kernels = d.convolucion.kernels;
+    conv.listo = true;
+    nuevaPasada();
+  }
+
+  const LEMA = ['transformamos', 'datos', 'en', 'decisiones', '.'];
+  function siguienteToken() {
+    const toks = llm.tokens;
+    if (!toks.length) {
+      const w = llm.primera ? LEMA[0] : llm.inicios[Math.floor(Math.random() * llm.inicios.length)];
+      toks.push(w);
+      llm.ultima = { w, p: null, prev: null, atn: [] };
+      return;
+    }
+    const prev = toks[toks.length - 1];
+    let cand = llm.bigramas[prev] || [['.', 1]];
+    // decodificación: sin punto final antes de la cuarta palabra, y cierre al llegar a 10
+    if (toks.length < 4 && cand.some(([c]) => c !== '.')) cand = cand.filter(([c]) => c !== '.');
+    if (toks.length >= 10 && cand.some(([c]) => c === '.')) cand = cand.filter(([c]) => c === '.');
+    const total = cand.reduce((a, [, n]) => a + n, 0);
+    let w = cand[0][0];
+    if (llm.primera && cand.some(([c]) => c === LEMA[toks.length])) w = LEMA[toks.length];
+    else {
+      let r = Math.random() * total;
+      for (const [c, n] of cand) { r -= n; if (r <= 0) { w = c; break; } }
+    }
+    if (w === '.' || toks.length >= 10) llm.primera = false;
+    const p = (cand.find(([c]) => c === w)[1]) / total;
+    toks.push(w);
+    const vecDe = t => llm.vec[llm.indice[t]];
+    llm.ultima = { w, p, prev, atn: atencion(vecDe(w), toks.slice(0, -1).map(vecDe)) };
+  }
 
   // ---------- Recorrido según el scroll ----------
   const anclas = ETAPAS.map(e => document.getElementById(e.id));
@@ -636,30 +910,24 @@ function iniciar() {
   // izquierda de la cámara, así el objeto queda en la mitad derecha, libre del texto;
   // con valores negativos queda en la mitad izquierda.
   const PARADAS = [
-    { s: 0.0, cam: V(25, 8, 36), foco: V(0, -1, 0), corre: 9 },
-    { s: 0.6, cam: V(40, 6, 24), foco: V(0, 0, 0), corre: 10 },
-    // en servicios la lista va a la derecha: el cerebro pasa a la izquierda
-    { s: 1.0, cam: V(44, 4, 4), foco: V(0, 0, -1), corre: -10 },
-    { s: 1.55, cam: V(30, 14, -26), foco: V(0, 0, -2), corre: -9 },
-    { s: 2.0, cam: V(-8, 1.5, 50), foco: V(0, -1, 22), corre: 7 },
-    { s: 2.5, cam: V(-4, 2, 49), foco: V(0, -1, 22), corre: 7 },
-    { s: 3.0, cam: V(34, 6, 30), foco: V(0, 0, 0), corre: 11 },
+    { s: 0.0, cam: V(25, 8, 40), foco: V(0, -1, 0), corre: 13 },
+    { s: 0.6, cam: V(40, 6, 26), foco: V(0, 0, 0), corre: 11 },
+    // en servicios la lista va a la derecha: el cerebro y el texto generado pasan a la izquierda
+    { s: 1.0, cam: V(50, 6, 4), foco: V(0, 3, -1), corre: -12 },
+    { s: 1.55, cam: V(36, 16, -28), foco: V(0, 3, -2), corre: -11 },
+    { s: 2.0, cam: V(-6, 1.5, 47), foco: V(0, -0.5, 22), corre: 6.5 },
+    { s: 2.5, cam: V(-3, 2, 46), foco: V(0, -0.5, 22), corre: 6.5 },
+    { s: 3.0, cam: V(52, 12, 50), foco: V(0, -5, 0), corre: 15 },
   ];
   const rutaCam = new THREE.CatmullRomCurve3(PARADAS.map(p => p.cam), false, 'centripetal');
   const rutaMira = new THREE.CatmullRomCurve3(PARADAS.map(p => p.foco), false, 'centripetal');
-  const correEn = s => {
+  const tramo = s => {
     for (let i = 0; i < PARADAS.length - 1; i++) {
-      if (s <= PARADAS[i + 1].s) return lerp(PARADAS[i].corre, PARADAS[i + 1].corre, (s - PARADAS[i].s) / (PARADAS[i + 1].s - PARADAS[i].s));
+      if (s <= PARADAS[i + 1].s) return [i, (s - PARADAS[i].s) / (PARADAS[i + 1].s - PARADAS[i].s)];
     }
-    return PARADAS[PARADAS.length - 1].corre;
+    return [PARADAS.length - 2, 1];
   };
   const derecha = V(0, 0, 0), arriba = V(0, 1, 0);
-  const uRuta = s => {
-    for (let i = 0; i < PARADAS.length - 1; i++) {
-      if (s <= PARADAS[i + 1].s) return (i + (s - PARADAS[i].s) / (PARADAS[i + 1].s - PARADAS[i].s)) / (PARADAS.length - 1);
-    }
-    return 1;
-  };
 
   const mouseT = new THREE.Vector2(0, 0), mouseS = new THREE.Vector2(0, 0), mouse = new THREE.Vector2(9, 9);
   let mouseDentro = false;
@@ -688,11 +956,12 @@ function iniciar() {
   const telemetria = crearTelemetria();
   const modal = document.getElementById('videoModal');
   const pos = V(0, 0, 0), mira = V(0, 0, 0);
-  let sCur = etapaScroll(), tPrev = performance.now(), tiempo = 0, hudT = 0, muestra = 0, neuronaHud = 0;
+  let sCur = etapaScroll(), tPrev = performance.now(), tiempo = 0, hudT = 0;
 
   function frame(now) {
     requestAnimationFrame(frame);
     const dt = Math.min(0.05, (now - tPrev) / 1000);
+    const dtr = Math.min(0.25, (now - tPrev) / 1000); // para los procesos: tiempo real aunque haya pocos cuadros
     tPrev = now;
     if (modal && modal.classList.contains('show')) return;
     if (!reduceMotion) tiempo += dt;
@@ -701,47 +970,128 @@ function iniciar() {
     if (!reduceMotion) intro = introInicio > 0 && now > introInicio ? Math.min(1, (now - introInicio) / 2600) : 0;
     const ease = 1 - Math.pow(1 - intro, 3);
 
-    const objetivo = etapaScroll();
-    sCur += (objetivo - sCur) * (reduceMotion ? 1 : 1 - Math.exp(-dt * 2.6));
+    sCur += (etapaScroll() - sCur) * (reduceMotion ? 1 : 1 - Math.exp(-dt * 2.6));
     const s = sCur;
+    const angosto = camera.aspect < 1.1;
 
-    // fases de la historia
+    // visibilidad de cada proceso
     const compone = 0.55 * ease + 0.45 * smooth(0.05, 1.0, s);
     const crece = smooth(0.85, 1.7, s) * 1.15;
-    const convVis = smooth(1.9, 2.05, s) * (1 - smooth(2.55, 2.85, s));
-    const entrena = smooth(2.6, 2.95, s);
-    const calculo = smooth(1.2, 1.5, s) * (1 - convVis);
+    const embVis = ease * (1 - smooth(0.7, 1.0, s));
+    const llmVis = smooth(0.8, 1.05, s) * (1 - smooth(1.65, 1.9, s));
+    const convVis = smooth(1.85, 2.05, s) * (1 - smooth(2.55, 2.8, s));
+    const trainVis = smooth(2.6, 2.9, s);
 
-    // entrenamiento en vivo: arranca al llegar a la etapa y se reinicia al volver atrás
-    if (s < 2.3 && red.epoca > 0) { red.reiniciar(); historial.length = 0; red.pesos(pesos); }
-    entrenando = entrena > 0.5;
-    if (entrenando) {
-      const pasos = reduceMotion ? 20 : clamp(Math.round(dt * 60), 1, 3); // ~60 épocas por segundo
-      for (let i = 0; i < pasos; i++) ultimaMetrica = red.paso();
-      if (red.epoca % 4 === 0) historial.push(ultimaMetrica.loss);
-      if (historial.length > 160) historial.shift();
-      red.pesos(pesos);
+    // 01 · embeddings: las palabras llegan a su lugar y se conectan con sus vecinas
+    if (emb.listo) {
+      const llegada = smooth(0, 1, compone);
+      emb.t += dtr;
+      if (emb.t > 1.4) { emb.t = 0; emb.activa = (emb.activa + 7) % emb.palabras.length; }
+      emb.palabras.forEach((p, i) => {
+        p.s.position.lerpVectors(p.origen, p.destino, llegada);
+        const activa = i === emb.activa, vecina = emb.vecinosIdx[emb.activa].some(([j]) => j === i);
+        p.s.material.opacity = embVis * (activa ? 1 : vecina ? 0.8 : 0.32);
+        const esc = activa ? 1.25 : 1;
+        p.s.scale.set(0.95 * 512 / 96 * esc, 0.95 * esc, 1);
+      });
+      if (embVis > 0.01) {
+        const base = new THREE.Color(0.0, 0.5, 0.85);
+        emb.palabras.forEach((p, i) => emb.vecinosIdx[i].slice(0, 2).forEach(([j, c]) => {
+          if (j > i || !emb.vecinosIdx[j].slice(0, 2).some(([k]) => k === i)) linea(lineasEmb, p.s.position, emb.palabras[j].s.position, base, embVis * 0.22 * c);
+        }));
+        const act = emb.palabras[emb.activa];
+        emb.vecinosIdx[emb.activa].forEach(([j, c]) => linea(lineasEmb, act.s.position, emb.palabras[j].s.position, CIAN, embVis * (0.35 + c)));
+        vectorSprite.position.copy(act.s.position).add(V(0, 1.35, 0));
+        if (vectorSprite.userData.w !== act.w) { dibujarVector(act.v); vectorSprite.userData.w = act.w; }
+      }
+      vectorSprite.material.opacity = embVis;
+      cerrar(lineasEmb);
     }
-    if (convVis > 0.01) avanzarConvolucion(dt);
 
-    // onda de activación: adelante→atrás al calcular, atrás→adelante al entrenar
-    const fase = (tiempo * (entrenando ? 0.55 : 0.4)) % 1;
-    comunes.uWaveZ.value = entrenando ? lerp(-15, 15, fase) : lerp(15, -15, fase);
-    comunes.uWaveOn.value = Math.max(calculo, entrena) * (1 - convVis);
-    comunes.uTrain.value = entrena;
+    // 02 · LLM: genera palabra por palabra y dibuja la atención de la última sobre las anteriores
+    if (llm.listo) {
+      if (llmVis > 0.3 || llm.tokens.length === 0) {
+        llm.t += dtr;
+        const terminada = llm.tokens.length >= 11 || llm.tokens[llm.tokens.length - 1] === '.';
+        if (terminada) { llm.espera += dtr; if (llm.espera > 1.8) { llm.tokens = []; llm.espera = 0; llm.t = 1; } }
+        else if (llm.t > (reduceMotion ? 0.3 : 0.85)) { llm.t = 0; siguienteToken(); }
+      }
+      spritesTok.forEach((sp, k) => {
+        const w = llm.tokens[k];
+        if (w) {
+          sp.position.copy(ranuras[k]);
+          const ultima = k === llm.tokens.length - 1;
+          escribir(sp, w, ultima ? '#00ccff' : 'rgba(232, 246, 255, 0.92)', '500 50px "Inter", -apple-system, sans-serif');
+          sp.material.opacity = llmVis * (ultima ? 1 : 0.85);
+        } else sp.material.opacity = 0;
+      });
+      if (llmVis > 0.01 && llm.ultima && llm.tokens.length > 1) {
+        const q = ranuras[llm.tokens.length - 1];
+        const ctrl = llm.centro;
+        const c = new THREE.Color(), a = V(0, 0, 0), b = V(0, 0, 0);
+        llm.ultima.atn.forEach((w, k) => {
+          const dest = ranuras[k];
+          c.copy(CIAN).lerp(BLANCO, w);
+          for (let i = 0; i < 16; i++) { // curva cuadrática que pasa cerca del centro del cerebro
+            const t0 = i / 16, t1 = (i + 1) / 16;
+            const bez = (t, out) => out.set(0, 0, 0).addScaledVector(q, (1 - t) ** 2).addScaledVector(ctrl, 2 * t * (1 - t)).addScaledVector(dest, t * t);
+            bez(t0, a); bez(t1, b);
+            linea(lineasAtencion, a, b, c, llmVis * (0.08 + 0.9 * w));
+          }
+        });
+      }
+      cerrar(lineasAtencion);
+    }
+
+    // 03 · convolución
+    if (convVis > 0.01) avanzarConvolucion(dtr);
+    for (const u of uPlanos) u.uOpacity.value = convVis;
+    etiquetasConv.forEach(e => { e.material.opacity = convVis; });
+    etiquetaKernel.material.opacity = convVis;
+    marcoMat.opacity = convVis;
+    rayosMat.opacity = convVis * 0.8;
+
+    // 04 · entrenamiento por ejemplos con backpropagation
+    if (s < 2.3 && red.pasos > 0) { red.reiniciar(); historial.length = 0; red.pesos(pesos); metrica = red.evaluar(); ej.dato = null; }
+    entrenando = trainVis > 0.5;
+    let fase = 0; // 0 = adelante, 1 = atrás
+    if (entrenando) {
+      const pasos = reduceMotion ? 20 : 2;
+      for (let i = 0; i < pasos; i++) red.paso();
+      if (red.pasos % 10 === 0) { metrica = red.evaluar(); historial.push(metrica.loss); if (historial.length > 120) historial.shift(); }
+      red.pesos(pesos);
+      ej.t += dtr;
+      if (!ej.dato || ej.t > 1.3) { ej.t = 0; ej.orden = (ej.orden + 37) % red.X.length; ej.dato = red.ejemplo(ej.orden); }
+      fase = ej.t < 0.65 ? 0 : 1;
+      panel.t += dtr;
+      if (panel.t > 0.2) { panel.t = 0; dibujarPanel(); }
+    }
+    const ondaT = entrenando ? (fase === 0 ? ej.t / 0.65 : (ej.t - 0.65) / 0.65) : (tiempo * 0.4) % 1;
+    comunes.uWaveZ.value = entrenando && fase === 1 ? lerp(-15, 15, clamp(ondaT, 0, 1)) : lerp(15, -15, clamp(ondaT, 0, 1));
+    comunes.uWaveOn.value = Math.max(llmVis * 0.7, trainVis) * (1 - convVis);
+    comunes.uWaveColor.value.copy(entrenando && fase === 1 ? VIOLETA : BLANCO);
     comunes.uTime.value = tiempo;
+    uPulsos.uDir.value = entrenando && fase === 1 ? -1 : 1;
+    uPulsos.uColor.value.copy(entrenando && fase === 1 ? VIOLETA : CIAN);
+    uPulsos.uOpacity.value = ease * Math.max(llmVis, trainVis) * (1 - convVis);
+
+    // panel pegado a la cámara: a la derecha del cerebro, a la altura del formulario
+    panel.m.material.opacity = angosto ? 0 : trainVis;
+    if (!angosto) {
+      const D = 18, hh = D * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)), hw = hh * camera.aspect;
+      const px = Math.min(240, window.innerHeight * 0.28, window.innerWidth * 0.17);
+      const lado = px / window.innerHeight * 2 * hh;
+      panel.m.scale.set(lado, lado, 1);
+      const nx = 1 - (px / 2 + Math.max(24, (window.innerWidth - 1160) / 2 + 16)) / (window.innerWidth / 2);
+      panel.m.position.set(nx * hw, 0.17 * hh, -D);
+      panel.m.rotation.y = -0.22;
+    }
 
     uPuntos.uCompose.value = compone;
     uPuntos.uOpacity.value = ease * (1 - 0.65 * convVis);
     uNeuronas.uOpacity.value = ease * smooth(0.8, 1.15, s) * (1 - 0.7 * convVis);
     uSinapsis.uCrece.value = crece;
-    uSinapsis.uOpacity.value = ease * (1 - 0.7 * convVis) * (0.8 + 0.4 * entrena);
-    uPulsos.uOpacity.value = ease * Math.max(calculo, entrena) * (1 - convVis);
-    uPulsos.uDir.value = entrenando ? -1 : 1;
-    uPulsos.uColor.value.copy(entrenando ? BLANCO : CIAN);
-    for (const u of uPlanos) u.uOpacity.value = convVis;
-    kernelMat.opacity = convVis;
-    rayosMat.opacity = convVis * 0.8;
+    uSinapsis.uOpacity.value = ease * (1 - 0.7 * convVis) * (0.8 + 0.4 * trainVis);
 
     // mouse
     mouseS.lerp(mouseT, 1 - Math.exp(-dt * 2.5));
@@ -752,20 +1102,19 @@ function iniciar() {
     comunes.uMouse.value.copy(mouse);
 
     // cámara
-    const u = uRuta(s);
-    rutaCam.getPoint(u, pos);
-    rutaMira.getPoint(u, mira);
+    const [ti, tf] = tramo(s);
+    rutaCam.getPoint((ti + tf) / (PARADAS.length - 1), pos);
+    rutaMira.getPoint((ti + tf) / (PARADAS.length - 1), mira);
     derecha.subVectors(mira, pos).cross(arriba).normalize();
-    if (camera.aspect < 1.1) { // pantallas angostas: más lejos y un poco más abajo, debajo del texto
+    if (angosto) { // pantallas angostas: más lejos y un poco más abajo, debajo del texto
       pos.addScaledVector(pos.clone().sub(mira).normalize(), 14);
       mira.y += 7;
-    }
-    else mira.addScaledVector(derecha, -correEn(s));
+    } else mira.addScaledVector(derecha, -lerp(PARADAS[ti].corre, PARADAS[ti + 1].corre, tf));
     pos.x -= mouseS.x * 2; pos.y += mouseS.y * 1.3;
     pos.z += (1 - ease) * 40;
     camera.position.copy(pos);
     camera.lookAt(mira.x - mouseS.x * 1.5, mira.y + mouseS.y, mira.z);
-    cerebro.rotation.y = Math.sin(tiempo * 0.1) * 0.3 * (1 - convVis) + mouseS.x * 0.12;
+    cerebro.rotation.y = Math.sin(tiempo * 0.1) * 0.3 * (1 - convVis) * (1 - llmVis) + mouseS.x * 0.12;
     cerebro.rotation.x = -mouseS.y * 0.06;
 
     if (composer) composer.render(); else renderer.render(scene, camera);
@@ -774,28 +1123,22 @@ function iniciar() {
     hudT += dt;
     if (hudT > 0.1) {
       hudT = 0;
-      if (Math.floor(tiempo / 0.8) !== muestra) {
-        muestra = Math.floor(tiempo / 0.8);
-        neuronaHud = muestra % 12;
-      }
-      const ej = red.X[(muestra * 37) % red.X.length];
-      const f = red.forward(ej);
       telemetria.actualizar({
-        s, compone, crece, entrenando,
-        puntos: Q.puntos, neuronas: neuronas.length, sinapsis: nS,
-        neurona: { j: neuronaHud, z: f.z[0][neuronaHud], a: f.a[1][neuronaHud] },
-        conv: conv.ultimo && kernelInfo ? { ...conv.ultimo, canal: kernelInfo.canal, capa: kernelInfo.capa } : null,
-        epoca: red.epoca, metrica: ultimaMetrica, historial,
+        s, compone,
+        emb: emb.listo ? emb.palabras[emb.activa] : null,
+        llm: llm.listo ? { tokens: llm.tokens, ultima: llm.ultima } : null,
+        conv: conv.ultimo,
+        train: { epoca: red.epoca, metrica, historial, ej: ej.dato, fase, entrenando },
       });
     }
   }
 
-  prepararConvolucion().catch(() => { /* sin datos de convolución: el resto de la escena sigue */ });
+  cargar().catch(() => { /* sin datos: el cerebro y el entrenamiento siguen funcionando */ });
   requestAnimationFrame(frame);
   return true;
 }
 
-// ---------- Telemetría estilo VMS en la barra de navegación ----------
+// ---------- Telemetría en una franja debajo del menú ----------
 function crearTelemetria() {
   const fila = document.createElement('div');
   fila.className = 'vms-row';
@@ -803,9 +1146,9 @@ function crearTelemetria() {
   document.getElementById('navbar')?.append(fila);
   const barra = document.createElement('div');
   barra.className = 'vms-strip';
-  barra.setAttribute('aria-label', 'Estado de la red neuronal del fondo');
+  barra.setAttribute('aria-label', 'Estado de los procesos de IA del fondo');
   barra.innerHTML = `
-    <span class="vms-live"><i></i>Red</span>
+    <span class="vms-live"><i></i>IA</span>
     <span class="vms-stage"></span>
     <span class="vms-layer"></span>
     <span class="vms-shape"></span>
@@ -822,25 +1165,35 @@ function crearTelemetria() {
       const e = clamp(Math.round(d.s), 0, 3);
       set('.vms-stage', `${String(e + 1).padStart(2, '0')} ${ETAPAS[e].nombre}`);
       let capa = '', forma = '';
-      if (e === 0) {
-        capa = `${d.puntos.toLocaleString('es-AR')} puntos`;
-        forma = `cerebro ${Math.round(d.compone * 100)}%`;
-      } else if (e === 1) {
-        const n = Math.round(clamp(d.crece, 0, 1) * d.sinapsis);
-        capa = `${d.neuronas} neuronas · ${n.toLocaleString('es-AR')} sinapsis`;
-        forma = `h${d.neurona.j + 1}: Σw·x+b = ${num(d.neurona.z)} → tanh ${num(d.neurona.a)}`;
-      } else if (e === 2) {
-        capa = d.conv ? `${d.conv.capa} · canal ${d.conv.canal} · 3×3×3` : 'kernel 3×3×3';
-        forma = d.conv ? `(${d.conv.x},${d.conv.y}) Σ = ${num(d.conv.z)} → SiLU ${num(d.conv.silu)}` : '';
-      } else {
-        capa = d.epoca ? `época ${d.epoca} · pérdida ${num(d.metrica.loss, 3)}` : 'época 0';
-        forma = d.epoca ? `precisión ${Math.round(d.metrica.acc * 100)}%` : '';
+      if (e === 0 && d.emb) {
+        capa = `‘${d.emb.w}’ → [${d.emb.v.slice(0, 3).map(v => num(v)).join(' ')} …] 300d`;
+        const [w, c] = d.emb.vecinos[0];
+        forma = `vecina ‘${w}’ · coseno ${num(c)}`;
+      } else if (e === 1 && d.llm && d.llm.ultima) {
+        capa = d.llm.tokens.join(' ').replace(' .', '.');
+        const u = d.llm.ultima;
+        if (u.p !== null) {
+          const toks = d.llm.tokens, i = u.atn.reduce((m, v, k, arr) => (v > arr[m] ? k : m), 0);
+          forma = `P(‘${u.w}’ | ‘${u.prev}’) = ${num(u.p)} · atención ‘${toks[i]}’ ${num(u.atn[i])}`;
+        } else forma = 'inicio de frase';
+      } else if (e === 2 && d.conv) {
+        capa = `kernel ${d.conv.kernel} · 3×3`;
+        forma = `(${d.conv.x},${d.conv.y}) Σ = ${num(d.conv.z)} → ReLU ${num(d.conv.relu)}`;
+      } else if (e === 3) {
+        const t = d.train;
+        capa = t.entrenando ? `época ${t.epoca} · pérdida ${num(t.metrica.loss, 3)} · precisión ${Math.round(t.metrica.acc * 100)}%` : '200 ejemplos de entrenamiento';
+        if (t.ej) {
+          forma = t.fase === 0
+            ? `ejemplo → p = ${num(t.ej.p)} · clase ${t.ej.y ? 'A' : 'B'}`
+            : `backprop · error ${num(t.ej.error)} · ‖∂L/∂W‖ ${num(t.ej.grad, 3)}`;
+        }
       }
       set('.vms-layer', capa);
       set('.vms-shape', forma);
-      spark.hidden = e !== 3 || d.historial.length < 2;
+      const h = d.train.historial;
+      spark.hidden = e !== 3 || h.length < 2;
       if (!spark.hidden) {
-        const h = d.historial, max = Math.max(...h, 0.01);
+        const max = Math.max(...h, 0.01);
         sg.clearRect(0, 0, 120, 28);
         sg.strokeStyle = '#00ccff';
         sg.lineWidth = 2;

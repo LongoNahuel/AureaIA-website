@@ -1,15 +1,18 @@
 /* ==========================================================================
-   AureaIA — Escena inmersiva
+   AureaIA — Recorrido inmersivo por una red neuronal 3D
 
-   Una sola nube de partículas acompaña todo el sitio y cambia de forma con el
-   scroll, siguiendo la frase del hero: "Transformamos datos en decisiones".
+   Al bajar por el sitio, la cámara vuela a través de una red neuronal
+   modelada en 3D, siguiendo la frase del hero: "Transformamos datos en
+   decisiones".
 
-     01 Datos     (#inicio)     flujo de datos en movimiento
-     02 Modelo    (#servicios)  red neuronal por capas
-     03 Visión    (#historias)  lente con recuadro de detección
-     04 Decisión  (#contacto)   cubo isométrico, como el logo
+     01 Datos     (#inicio)     tensor de entrada (3 canales de 16×10 vóxeles)
+     02 Modelo    (#servicios)  bloques convolucionales y anillos densos
+     03 Visión    (#historias)  túnel de recuadros de detección
+     04 Decisión  (#contacto)   el iris enmarca la neurona de salida ganadora y el logo
 
-   Three.js con bloom (UnrealBloomPass) y profundidad de campo en el shader.
+   Neuronas reales (InstancedMesh), conexiones, pulsos de señal que viajan
+   entre capas, una onda de activación de adelante hacia atrás, niebla para
+   la profundidad y bloom (UnrealBloomPass).
    Además: cursor, botones magnéticos e indicador de recorrido.
    Si no hay WebGL, el sitio sigue usando particles.js como antes.
    ========================================================================== */
@@ -29,7 +32,13 @@ const ETAPAS = [
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 const coarse = window.matchMedia('(pointer: coarse)').matches;
 const compacto = coarse || Math.min(window.innerWidth, window.innerHeight) < 700;
-const N = compacto ? 9000 : 26000;
+const Q = compacto
+  ? { pulsos: 600, flujo: 300, polvo: 1200, conex: 0.55, niebla: 0.02 }
+  : { pulsos: 1800, flujo: 900, polvo: 3600, conex: 1, niebla: 0.016 };
+
+const FONDO = 0x0a0a0a;
+const AZUL = new THREE.Color(0x0066ff);
+const CIAN = new THREE.Color(0x00ccff);
 
 // ---------- Utilidades ----------
 function mulberry32(a) {
@@ -41,207 +50,143 @@ function mulberry32(a) {
   };
 }
 const rand = mulberry32(20261016);
-const gauss = () => {
-  let u = 0, v = 0;
-  while (!u) u = rand();
-  while (!v) v = rand();
-  return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
-};
 const TAU = Math.PI * 2;
 const lerp = (a, b, t) => a + (b - a) * t;
-const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const pick = arr => arr[Math.floor(rand() * arr.length)];
+const V = (x, y, z) => new THREE.Vector3(x, y, z);
 
-// ---------- Formas (una posición por partícula y por etapa) ----------
-function formaDatos(P, L) {
-  for (let i = 0; i < N; i++) {
-    let x, y, z, l;
-    if (rand() < 0.55) { // corrientes de datos
-      const k = Math.floor(rand() * 18), t = rand() * 2 - 1;
-      x = t * 78;
-      y = Math.sin(t * 3 + k) * 9 + (k - 8.5) * 2.8 + gauss() * 0.5;
-      z = Math.cos(t * 2.2 + k * 0.7) * 12 - 8 + gauss() * 0.5;
-      l = rand() < 0.06 ? 1 : 0.5;
-    } else { // polvo de fondo
-      x = (rand() * 2 - 1) * 80;
-      y = (rand() * 2 - 1) * 36;
-      z = -rand() * 70 + 18;
-      l = rand() < 0.03 ? 0.9 : 0.1;
-    }
-    P.set([x, y, z], i * 3); L[i * 4] = l;
-  }
-}
-
-function formaModelo(P, L) {
-  const capas = [6, 9, 12, 9, 6];
-  const nodos = capas.map((n, li) => Array.from({ length: n }, (_, ni) => [
-    (li - 2) * 13, (ni - (n - 1) / 2) * 3.6, Math.sin(ni * 1.7 + li) * 5,
-  ]));
-  const todos = nodos.flat();
-  for (let i = 0; i < N; i++) {
-    let p, l;
-    if (rand() < 0.32) { // neuronas
-      const n = todos[Math.floor(rand() * todos.length)];
-      p = [n[0] + gauss() * 0.45, n[1] + gauss() * 0.45, n[2] + gauss() * 0.45];
-      l = 1;
-    } else { // conexiones entre capas
-      const li = Math.floor(rand() * 4);
-      const a = nodos[li][Math.floor(rand() * nodos[li].length)];
-      const b = nodos[li + 1][Math.floor(rand() * nodos[li + 1].length)];
-      const t = rand();
-      p = [lerp(a[0], b[0], t) + gauss() * 0.06, lerp(a[1], b[1], t) + gauss() * 0.06, lerp(a[2], b[2], t) + gauss() * 0.06];
-      l = 0.3;
-    }
-    P.set(p, i * 3); L[i * 4 + 1] = l;
-  }
-}
-
-function formaVision(P, L) {
-  for (let i = 0; i < N; i++) {
-    const r0 = rand();
-    let x, y, z, l;
-    if (r0 < 0.42) { // iris con estrías radiales
-      const ang = (Math.floor(rand() * 120) / 120) * TAU + gauss() * 0.004;
-      const rad = 3.8 + Math.pow(rand(), 0.8) * 9.4;
-      x = Math.cos(ang) * rad; y = Math.sin(ang) * rad; z = gauss() * 0.35;
-      l = rad < 5.2 ? 0.85 : 0.45;
-    } else if (r0 < 0.6) { // bordes de pupila e iris
-      const anillos = [3.4, 13.4, 14.4];
-      const rad = anillos[Math.floor(rand() * 3)] + gauss() * 0.06, ang = rand() * TAU;
-      x = Math.cos(ang) * rad; y = Math.sin(ang) * rad; z = 0;
-      l = 0.95;
-    } else if (r0 < 0.74) { // globo ocular por paralelos
-      const lat = (Math.floor(rand() * 11) / 10 - 0.5) * Math.PI * 0.9, lon = rand() * TAU, R = 17;
-      x = R * Math.cos(lat) * Math.cos(lon); y = R * Math.sin(lat); z = R * Math.cos(lat) * Math.sin(lon) - 2;
-      l = 0.2;
-    } else if (r0 < 0.9) { // esquinas del recuadro de detección
-      const s = 20, largo = 6, cx = rand() < 0.5 ? -1 : 1, cy = rand() < 0.5 ? -1 : 1, d = rand() * largo;
-      if (rand() < 0.5) { x = cx * (s - d); y = cy * s; } else { x = cx * s; y = cy * (s - d); }
-      x += gauss() * 0.05; y += gauss() * 0.05; z = 0;
-      l = 1;
-    } else { // marcas de mira
-      const dir = Math.floor(rand() * 4), d = 15.5 + rand() * 3;
-      x = dir === 0 ? d : dir === 1 ? -d : gauss() * 0.04;
-      y = dir === 2 ? d : dir === 3 ? -d : gauss() * 0.04;
-      z = 0;
-      l = 0.8;
-    }
-    P.set([x, y, z], i * 3); L[i * 4 + 2] = l;
-  }
-}
-
-function formaDecision(P, L) {
-  const aristas = a => {
-    const v = [];
-    for (const x of [-a, a]) for (const y of [-a, a]) for (const z of [-a, a]) v.push([x, y, z]);
-    const e = [];
-    for (let i = 0; i < 8; i++) for (let j = i + 1; j < 8; j++) {
-      const dif = v[i].reduce((s, c, k) => s + (c !== v[j][k] ? 1 : 0), 0);
-      if (dif === 1) e.push([v[i], v[j]]);
-    }
-    return { v, e };
+// Lo que pasa muy cerca de la cámara se desvanece, para atravesar la red sin
+// que una neurona o una partícula tape la pantalla
+const CERCA = { uNear0: { value: 4 }, uNear1: { value: 14 } };
+function fadeCercano(mat) {
+  mat.onBeforeCompile = sh => {
+    sh.uniforms.uNear0 = CERCA.uNear0;
+    sh.uniforms.uNear1 = CERCA.uNear1;
+    sh.vertexShader = 'varying float vProf;\n' + sh.vertexShader.replace(
+      '#include <project_vertex>', '#include <project_vertex>\n  vProf = -mvPosition.z;');
+    sh.fragmentShader = 'uniform float uNear0, uNear1;\nvarying float vProf;\n' + sh.fragmentShader.replace(
+      '#include <opaque_fragment>', '#include <opaque_fragment>\n  gl_FragColor.a *= smoothstep(uNear0, uNear1, vProf);');
   };
-  const ext = aristas(8.5), int = aristas(3.5);
-  // rotación isométrica: X 35.26°, Y 45°
-  const rx = Math.atan(1 / Math.SQRT2), ry = Math.PI / 4;
-  const cx = Math.cos(rx), sx = Math.sin(rx), cy = Math.cos(ry), sy = Math.sin(ry);
-  const iso = ([x, y, z]) => {
-    const x1 = x * cy + z * sy, z1 = -x * sy + z * cy;
-    return [x1, y * cx - z1 * sx, y * sx + z1 * cx];
-  };
-  for (let i = 0; i < N; i++) {
-    const r0 = rand();
-    let p, l;
-    const enArista = (cubo, j) => {
-      const [a, b] = cubo.e[Math.floor(rand() * cubo.e.length)], t = rand();
-      return [lerp(a[0], b[0], t) + gauss() * j, lerp(a[1], b[1], t) + gauss() * j, lerp(a[2], b[2], t) + gauss() * j];
-    };
-    if (r0 < 0.55) { p = enArista(ext, 0.05); l = 0.5; }
-    else if (r0 < 0.75) { p = enArista(int, 0.04); l = 0.45; }
-    else if (r0 < 0.85) { const v = ext.v[Math.floor(rand() * 8)]; p = [v[0] + gauss() * 0.35, v[1] + gauss() * 0.35, v[2] + gauss() * 0.35]; l = 0.85; }
-    else { p = [gauss() * 1.4, gauss() * 1.4, gauss() * 1.4]; l = 0.7; }
-    P.set(iso(p), i * 3); L[i * 4 + 3] = l;
-  }
+  return mat;
 }
 
-// ---------- Shader de partículas ----------
-const vertexShader = /* glsl */`
-attribute vec3 posB;
-attribute vec3 posC;
-attribute vec3 posD;
-attribute vec3 aSeed;
-attribute vec4 aLum;
-uniform float uTime, uStage, uIntro, uPixel, uSize, uFocus, uFocusRange, uOpacity, uAspect;
-uniform vec2 uMouse;
-varying vec3 vColor;
+// ---------- Modelo de la red ----------
+// Cada capa: nodos (posiciones), tipo de neurona, tamaño e índice de capa (li)
+function construirRed() {
+  const capas = [];
+
+  const entrada = [];
+  for (let c = 0; c < 3; c++) for (let j = 0; j < 10; j++) for (let i = 0; i < 16; i++) {
+    entrada.push(V((i - 7.5) * 1.5, (j - 4.5) * 1.5, -c * 1.7));
+  }
+  capas.push({ nodos: entrada, tipo: 'voxel', tam: 0.55, li: 0 });
+
+  const mapas = (n, w, h, paso, z0, dz) => {
+    const out = [];
+    for (let k = 0; k < n; k++) for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
+      out.push(V((i - (w - 1) / 2) * paso, (j - (h - 1) / 2) * paso, z0 - k * dz));
+    }
+    return out;
+  };
+  capas.push({ nodos: mapas(8, 10, 6, 1.3, -30, 1.5), tipo: 'esfera', tam: 0.2, li: 1 });
+  capas.push({ nodos: mapas(16, 6, 4, 1.2, -55, 1.1), tipo: 'esfera', tam: 0.19, li: 2 });
+
+  const anillo = (n, r, z, fase = 0) => Array.from({ length: n }, (_, i) => {
+    const a = i / n * TAU + fase;
+    return V(Math.cos(a) * r, Math.sin(a) * r, z + Math.sin(a * 3) * 1.2);
+  });
+  capas.push({ nodos: anillo(32, 14, -85), tipo: 'esfera', tam: 0.6, li: 3 });
+  capas.push({ nodos: anillo(24, 12, -105, 0.13), tipo: 'esfera', tam: 0.55, li: 4 });
+  capas.push({ nodos: anillo(16, 10, -125, 0.2), tipo: 'esfera', tam: 0.5, li: 5 });
+  capas.push({ nodos: [...anillo(40, 7.5, -176), ...anillo(20, 4, -176, 0.15)], tipo: 'esfera', tam: 0.32, li: 6 });
+  capas.push({ nodos: [-6, -2, 2, 6].map(x => V(x, 0, -196)), tipo: 'salida', tam: 0.8, li: 7 });
+  return capas;
+}
+
+const GANADORA = 2; // índice de la neurona de salida que "decide"
+
+function construirConexiones(capas) {
+  const base = [320, 320, 220, 170, 130, 150, 120];
+  const conex = [];
+  for (let k = 0; k < capas.length - 1; k++) {
+    const A = capas[k].nodos, B = capas[k + 1].nodos;
+    const n = Math.round(base[k] * Q.conex);
+    for (let i = 0; i < n; i++) {
+      const b = k === capas.length - 2 && rand() < 0.5 ? B[GANADORA] : pick(B);
+      conex.push([pick(A), b, k]);
+    }
+  }
+  return conex;
+}
+
+// ---------- Shader de pulsos (señales que viajan entre neuronas) ----------
+const pulsoVS = /* glsl */`
+attribute vec3 aB;
+attribute vec2 aP;
+uniform float uTime, uPixel, uSize, uFog, uOpacity;
 varying float vAlpha;
-varying float vBlur;
-
 void main() {
-  float d = aSeed.x * 0.45;
-  float tAB = smoothstep(0.0 + d, 0.55 + d, uStage);
-  float tBC = smoothstep(1.0 + d, 1.55 + d, uStage);
-  float tCD = smoothstep(2.0 + d, 2.55 + d, uStage);
-  vec3 p = mix(mix(mix(position, posB, tAB), posC, tBC), posD, tCD);
-  float lum = mix(mix(mix(aLum.x, aLum.y, tAB), aLum.z, tBC), aLum.w, tCD);
-
-  // flujo de los datos: se calma a medida que se arma el modelo
-  float flujo = 1.0 - tAB;
-  float ph = aSeed.y * 6.2832;
-  p += flujo * vec3(sin(uTime * 0.30 + ph + p.y * 0.08) * 3.0,
-                    cos(uTime * 0.25 + aSeed.z * 6.2832 + p.x * 0.05) * 2.0,
-                    sin(uTime * 0.20 + aSeed.x * 6.2832) * 3.0);
-  // respiración leve en todas las etapas
-  p += 0.18 * sin(uTime * 0.9 + ph) * normalize(p + 0.001);
-  // dispersión a mitad de cada transición
-  float m = tAB * (1.0 - tAB) + tBC * (1.0 - tBC) + tCD * (1.0 - tCD);
-  p += m * 4.0 * (aSeed - 0.5) * 10.0;
-
-  // entrada: las partículas salen del centro
-  float ip = clamp(uIntro * 1.35 - aSeed.x * 0.35, 0.0, 1.0);
-  ip = 1.0 - pow(1.0 - ip, 3.0);
-  p *= mix(0.02, 1.0, ip);
-
+  float t = fract(aP.x + uTime * aP.y);
+  vec3 p = mix(position, aB, t);
   vec4 mv = modelViewMatrix * vec4(p, 1.0);
-  vec4 clip = projectionMatrix * mv;
-
-  // interacción con el mouse en pantalla
-  vec2 ndc = clip.xy / clip.w;
-  vec2 dv = (ndc - uMouse) * vec2(uAspect, 1.0);
-  float g = smoothstep(0.32, 0.0, length(dv));
-  clip.xy += normalize(dv + 1e-5) * g * 0.05 * clip.w;
-
-  float depth = -mv.z;
-  float blur = clamp(abs(depth - uFocus) / uFocusRange, 0.0, 1.0);
-  gl_PointSize = uSize * uPixel * (0.55 + lum * 1.2) * (1.0 + blur * 2.6) * (1.0 + g * 1.1) * (300.0 / depth);
-  gl_Position = clip;
-
-  vec3 azul = vec3(0.0, 0.4, 1.0);
-  vec3 cian = vec3(0.0, 0.8, 1.0);
-  vec3 blanco = vec3(0.86, 0.95, 1.0);
-  vColor = mix(mix(azul, cian, aSeed.y), blanco, clamp(lum * 0.55 + g * 0.5, 0.0, 1.0));
-  // el desenfoque agranda el punto: el alfa baja en proporción al área para no sumar luz
-  float area = (1.0 + blur * 2.6) * (1.0 + blur * 2.6);
-  vAlpha = (0.1 + lum * 0.9) / area * uOpacity * ip;
-  vBlur = blur;
+  gl_Position = projectionMatrix * mv;
+  float depth = max(-mv.z, 0.5);
+  float fog = exp(-pow(uFog * depth, 2.0));
+  gl_PointSize = uSize * uPixel * 300.0 / depth;
+  vAlpha = sin(t * 3.14159) * fog * uOpacity * smoothstep(4.0, 14.0, depth);
 }`;
-
-const fragmentShader = /* glsl */`
-varying vec3 vColor;
+const pulsoFS = /* glsl */`
+uniform vec3 uColor;
 varying float vAlpha;
-varying float vBlur;
 void main() {
   vec2 q = gl_PointCoord * 2.0 - 1.0;
   float r = dot(q, q);
   if (r > 1.0) discard;
-  float a = exp(-r * mix(5.5, 2.0, vBlur));
-  gl_FragColor = vec4(vColor, a * vAlpha);
+  gl_FragColor = vec4(uColor, exp(-r * 4.0) * vAlpha);
 }`;
+
+function crearPulsos(pares, uniformsComunes, color, tam) {
+  const n = pares.length;
+  const A = new Float32Array(n * 3), B = new Float32Array(n * 3), P = new Float32Array(n * 2);
+  pares.forEach(([a, b, vel], i) => {
+    A.set([a.x, a.y, a.z], i * 3);
+    B.set([b.x, b.y, b.z], i * 3);
+    P.set([rand(), vel], i * 2);
+  });
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(A, 3));
+  g.setAttribute('aB', new THREE.BufferAttribute(B, 3));
+  g.setAttribute('aP', new THREE.BufferAttribute(P, 2));
+  g.boundingSphere = new THREE.Sphere(V(0, 0, -100), 400);
+  const m = new THREE.ShaderMaterial({
+    vertexShader: pulsoVS, fragmentShader: pulsoFS,
+    uniforms: { ...uniformsComunes, uColor: { value: color }, uSize: { value: tam } },
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+  });
+  return new THREE.Points(g, m);
+}
+
+function spriteSuave() {
+  const c = document.createElement('canvas');
+  c.width = c.height = 64;
+  const g = c.getContext('2d');
+  const gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  gr.addColorStop(0, 'rgba(255,255,255,1)');
+  gr.addColorStop(0.35, 'rgba(255,255,255,0.35)');
+  gr.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = gr;
+  g.fillRect(0, 0, 64, 64);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
 
 // ---------- Escena ----------
 function iniciar() {
   let renderer;
   try {
-    renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
+    renderer = new THREE.WebGLRenderer({ antialias: !compacto, powerPreference: 'high-performance' });
   } catch (_) {
     return false;
   }
@@ -257,100 +202,190 @@ function iniciar() {
 
   const scene = new THREE.Scene();
   // fondo como color de escena: pasa bien por el espacio de color del compositor
-  scene.background = new THREE.Color(0x0a0a0a);
-  const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 400);
-  camera.position.set(0, 0, 72);
+  scene.background = new THREE.Color(FONDO);
+  scene.fog = new THREE.FogExp2(FONDO, Q.niebla);
 
-  const geo = new THREE.BufferGeometry();
-  const A = new Float32Array(N * 3), B = new Float32Array(N * 3), C = new Float32Array(N * 3), D = new Float32Array(N * 3);
-  const lum = new Float32Array(N * 4), seed = new Float32Array(N * 3);
-  formaDatos(A, lum); formaModelo(B, lum); formaVision(C, lum); formaDecision(D, lum);
-  for (let i = 0; i < seed.length; i++) seed[i] = rand();
-  geo.setAttribute('position', new THREE.BufferAttribute(A, 3));
-  geo.setAttribute('posB', new THREE.BufferAttribute(B, 3));
-  geo.setAttribute('posC', new THREE.BufferAttribute(C, 3));
-  geo.setAttribute('posD', new THREE.BufferAttribute(D, 3));
-  geo.setAttribute('aSeed', new THREE.BufferAttribute(seed, 3));
-  geo.setAttribute('aLum', new THREE.BufferAttribute(lum, 4));
-  geo.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 200);
+  const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 500);
+  const ajustarFov = () => { camera.fov = camera.aspect < 1 ? 68 : 55; camera.updateProjectionMatrix(); };
+  ajustarFov();
 
-  const uniforms = {
-    uTime: { value: 0 }, uStage: { value: 0 }, uIntro: { value: reduceMotion ? 1 : 0 },
-    uPixel: { value: pr }, uSize: { value: compacto ? 0.42 : 0.36 },
-    uFocus: { value: 72 }, uFocusRange: { value: 24 }, uOpacity: { value: 1 },
-    uAspect: { value: window.innerWidth / window.innerHeight }, uMouse: { value: new THREE.Vector2(9, 9) },
+  const capas = construirRed();
+  const conex = construirConexiones(capas);
+  const comunes = {
+    uTime: { value: 0 }, uPixel: { value: pr }, uFog: { value: Q.niebla }, uOpacity: { value: 0 },
   };
-  const mat = new THREE.ShaderMaterial({
-    uniforms, vertexShader, fragmentShader,
-    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
-  });
-  const grupo = new THREE.Group();
-  grupo.add(new THREE.Points(geo, mat));
-  scene.add(grupo);
 
+  // Neuronas: esferas y vóxeles instanciados, con color por instancia
+  const instancias = { esfera: [], voxel: [] };
+  capas.forEach(capa => capa.nodos.forEach((p, i) => {
+    const ganadora = capa.tipo === 'salida' && i === GANADORA;
+    const tam = ganadora ? capa.tam * 2 : capa.tam;
+    (capa.tipo === 'voxel' ? instancias.voxel : instancias.esfera).push({ p, tam, li: capa.li, r: rand(), ganadora });
+  }));
+  const mallas = [];
+  const crearMalla = (lista, geo) => {
+    const mat = fadeCercano(new THREE.MeshBasicMaterial({ toneMapped: false, transparent: true, opacity: 0 }));
+    const malla = new THREE.InstancedMesh(geo, mat, lista.length);
+    const m4 = new THREE.Matrix4(), q = new THREE.Quaternion();
+    lista.forEach((n, i) => {
+      malla.setMatrixAt(i, m4.compose(n.p, q, V(n.tam, n.tam, n.tam)));
+      malla.setColorAt(i, AZUL);
+    });
+    malla.instanceMatrix.needsUpdate = true;
+    scene.add(malla);
+    mallas.push({ malla, lista });
+  };
+  crearMalla(instancias.esfera, new THREE.IcosahedronGeometry(1, compacto ? 1 : 2));
+  crearMalla(instancias.voxel, new THREE.BoxGeometry(1, 1, 1));
+
+  // Conexiones con degradé azul → cian
+  const lp = new Float32Array(conex.length * 6), lc = new Float32Array(conex.length * 6);
+  conex.forEach(([a, b], i) => {
+    lp.set([a.x, a.y, a.z, b.x, b.y, b.z], i * 6);
+    lc.set([AZUL.r, AZUL.g, AZUL.b, CIAN.r, CIAN.g, CIAN.b], i * 6);
+  });
+  const lg = new THREE.BufferGeometry();
+  lg.setAttribute('position', new THREE.BufferAttribute(lp, 3));
+  lg.setAttribute('color', new THREE.BufferAttribute(lc, 3));
+  const lineasMat = fadeCercano(new THREE.LineBasicMaterial({
+    vertexColors: true, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending,
+  }));
+  scene.add(new THREE.LineSegments(lg, lineasMat));
+
+  // Pulsos de señal sobre las conexiones
+  const paresPulsos = Array.from({ length: Q.pulsos }, () => {
+    const [a, b] = pick(conex);
+    return [a, b, 0.25 + rand() * 0.35];
+  });
+  const pulsos = crearPulsos(paresPulsos, comunes, new THREE.Color(0.75, 0.95, 1.0), 0.32);
+  scene.add(pulsos);
+
+  // Datos que entran a la red desde detrás de la cámara
+  const entrada = capas[0].nodos;
+  const paresFlujo = Array.from({ length: Q.flujo }, () => [
+    V((rand() * 2 - 1) * 34, (rand() * 2 - 1) * 20, 45 + rand() * 40), pick(entrada), 0.08 + rand() * 0.12,
+  ]);
+  const flujo = crearPulsos(paresFlujo, comunes, CIAN.clone().multiplyScalar(0.9), 0.24);
+  scene.add(flujo);
+
+  // Visión: túnel de recuadros de detección
+  const recuadros = [];
+  [-140, -146, -152, -158, -164].forEach((z, k) => {
+    const s = 10 - k * 0.7, l = s * 0.32;
+    for (const sx of [-1, 1]) for (const sy of [-1, 1]) {
+      recuadros.push(sx * s, sy * s, z, sx * (s - l), sy * s, z);
+      recuadros.push(sx * s, sy * s, z, sx * s, sy * (s - l), z);
+    }
+  });
+  const rg = new THREE.BufferGeometry();
+  rg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(recuadros), 3));
+  const recuadrosMat = fadeCercano(new THREE.LineBasicMaterial({ color: CIAN, transparent: true, opacity: 0, toneMapped: false }));
+  scene.add(new THREE.LineSegments(rg, recuadrosMat));
+
+  // Decisión: cubo isométrico como el logo, detrás de la capa de salida
+  const logo = new THREE.Group();
+  const cuboMat = new THREE.LineBasicMaterial({ color: CIAN, transparent: true, opacity: 0, toneMapped: false });
+  logo.add(new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(7, 7, 7)), cuboMat));
+  logo.add(new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(3, 3, 3)), cuboMat));
+  logo.position.set(0, 0, -210);
+  logo.rotation.set(Math.atan(1 / Math.SQRT2), Math.PI / 4, 0);
+  scene.add(logo);
+
+  // Polvo en el espacio: da paralaje al moverse
+  const pp = new Float32Array(Q.polvo * 3);
+  for (let i = 0; i < Q.polvo; i++) {
+    pp.set([(rand() * 2 - 1) * 45, (rand() * 2 - 1) * 28, 70 - rand() * 300], i * 3);
+  }
+  const pg = new THREE.BufferGeometry();
+  pg.setAttribute('position', new THREE.BufferAttribute(pp, 3));
+  const polvoMat = fadeCercano(new THREE.PointsMaterial({
+    size: 0.26, map: spriteSuave(), color: 0x3d8bff, transparent: true, opacity: 0,
+    depthWrite: false, blending: THREE.AdditiveBlending, sizeAttenuation: true,
+  }));
+  scene.add(new THREE.Points(pg, polvoMat));
+
+  // Postproceso
   let composer = null;
   if (!compacto) {
     composer = new EffectComposer(renderer);
     composer.setPixelRatio(pr);
     composer.setSize(window.innerWidth, window.innerHeight);
     composer.addPass(new RenderPass(scene, camera));
-    composer.addPass(new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.7, 0.4, 0.35));
+    composer.addPass(new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.8, 0.5, 0.32));
     composer.addPass(new OutputPass());
   }
 
-  // Cámara y encuadre por etapa
-  const ENCUADRE = [
-    { z: 72, x: 10, op: 1.0 },
-    { z: 60, x: 0, op: 0.8 },
-    { z: 52, x: 0, op: 0.8 },
-    { z: 58, x: 0, op: 0.6 },
-  ];
+  // ---------- Recorrido de cámara ----------
+  // El último punto queda más allá del final: sirve para mirar hacia adelante
+  // Rodea por el costado la entrada y los bloques convolucionales, atraviesa los
+  // anillos y el túnel por el centro y se detiene frente a la capa de salida.
+  // El último punto queda más allá del final: sirve para mirar hacia adelante.
+  const ruta = new THREE.CatmullRomCurve3([
+    V(-7, 1, 40), V(-15, 6, 12), V(-17, 3, -20), V(11, -2, -48), V(0, 0, -72),
+    V(0, 0, -95), V(0, 0.5, -118), V(0, 0, -135), V(0, 0, -152), V(0, 0, -175), V(0, 0, -200),
+  ], false, 'centripetal');
+  // avance (0–1) sobre la ruta para una profundidad z dada
+  const muestras = Array.from({ length: 801 }, (_, i) => [i / 800, ruta.getPointAt(i / 800).z]);
+  const uParaZ = z => muestras.reduce((m, s) => (Math.abs(s[1] - z) < Math.abs(m[1] - z) ? s : m))[0];
+  const T_FIN = uParaZ(-150);
 
-  // Progreso del recorrido según las secciones
   const anclas = ETAPAS.map(e => document.getElementById(e.id));
-  let tops = [];
-  const medir = () => { tops = anclas.map(a => (a ? a.getBoundingClientRect().top + window.scrollY : 0)); };
+  let A = [0, 1, 2, 3, 4];
+  const medir = () => {
+    const vh = window.innerHeight;
+    const tops = anclas.map(a => (a ? a.getBoundingClientRect().top + window.scrollY : 0));
+    const max = Math.max(1, document.documentElement.scrollHeight - vh);
+    A = [0, tops[1] - vh * 0.35, tops[2] - vh * 0.35, tops[3] - vh * 0.35, max];
+    for (let i = 1; i < A.length; i++) A[i] = Math.max(A[i], A[i - 1] + 1);
+  };
   medir();
   new ResizeObserver(medir).observe(document.body);
   window.addEventListener('load', medir);
 
-  // Cada forma se mantiene armada mientras se lee la sección y cambia en el último 45%
-  const etapaObjetivo = () => {
-    if (tops.length < 4) return 0;
-    const y = window.scrollY + window.innerHeight * 0.45;
-    for (let i = 0; i < 3; i++) {
-      if (y < tops[i + 1]) return i + smooth(0.55, 1, (y - tops[i]) / Math.max(1, tops[i + 1] - tops[i]));
+  // posición del scroll → avance sobre la ruta, con cada sección en su tramo de la red
+  // inicio → junto a conv1 → salida de los anillos → entrada del túnel → dentro del túnel,
+  // con el iris enmarcando la neurona ganadora
+  const TRAMOS = [0, uParaZ(-20), uParaZ(-126), uParaZ(-140), T_FIN];
+  const progreso = () => {
+    const y = window.scrollY;
+    for (let i = 0; i < 4; i++) {
+      if (y < A[i + 1]) {
+        const f = clamp((y - A[i]) / (A[i + 1] - A[i]), 0, 1);
+        return { t: lerp(TRAMOS[i], TRAMOS[i + 1], f), etapa: i + f };
+      }
     }
-    return 3;
+    return { t: T_FIN, etapa: 3 };
   };
 
   // Mouse
-  const mouse = new THREE.Vector2(9, 9), mouseS = new THREE.Vector2(0, 0), mouseT = new THREE.Vector2(0, 0);
+  const mouseT = new THREE.Vector2(0, 0), mouseS = new THREE.Vector2(0, 0);
   window.addEventListener('pointermove', e => {
     if (e.pointerType === 'touch') return;
     mouseT.set(e.clientX / window.innerWidth * 2 - 1, -(e.clientY / window.innerHeight * 2 - 1));
   }, { passive: true });
-  document.addEventListener('pointerleave', () => mouseT.set(9, 9));
+  document.addEventListener('pointerleave', () => mouseT.set(0, 0));
 
   window.addEventListener('resize', () => {
     const w = window.innerWidth, h = window.innerHeight;
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
-    camera.updateProjectionMatrix();
-    uniforms.uAspect.value = w / h;
+    ajustarFov();
     if (composer) composer.setSize(w, h);
     medir();
   }, { passive: true });
 
-  // Entrada: arranca cuando se va la pantalla de carga
-  let introInicio = -1;
+  // Entrada: la cámara llega desde atrás cuando se va la pantalla de carga
+  let introInicio = reduceMotion ? 0 : -1;
   const empezarIntro = () => { if (introInicio < 0) introInicio = performance.now() + 450; };
   if (document.readyState === 'complete') empezarIntro();
   else window.addEventListener('load', empezarIntro);
 
   const hud = crearHud();
   const modal = document.getElementById('videoModal');
-  let sCur = etapaObjetivo(), tPrev = performance.now(), tiempo = 0;
+  const pos = V(0, 0, 0), mira = V(0, 0, 0), adelante = V(0, 0, 0), lateral = V(0, 0, 0), arriba = V(0, 1, 0);
+  const color = new THREE.Color(), base = AZUL.clone().multiplyScalar(0.45);
+  const activo = new THREE.Color(0.45, 0.85, 1.0).multiplyScalar(1.2);
+  let tCur = progreso().t, tPrev = performance.now(), tiempo = 0;
 
   function frame(now) {
     requestAnimationFrame(frame);
@@ -359,44 +394,51 @@ function iniciar() {
     if (modal && modal.classList.contains('show')) return;
     if (!reduceMotion) tiempo += dt;
 
-    const objetivo = etapaObjetivo();
-    sCur += (objetivo - sCur) * (reduceMotion ? 1 : 1 - Math.exp(-dt * 3.2));
-    if (Math.abs(objetivo - sCur) < 1e-4) sCur = objetivo;
+    const { t, etapa } = progreso();
+    tCur += (t - tCur) * (reduceMotion ? 1 : 1 - Math.exp(-dt * 2.6));
+    mouseS.lerp(mouseT, 1 - Math.exp(-dt * 2.5));
 
-    if (!reduceMotion && introInicio > 0 && now > introInicio) {
-      uniforms.uIntro.value = Math.min(1, (now - introInicio) / 2600);
+    let intro = 1;
+    if (!reduceMotion) intro = introInicio > 0 && now > introInicio ? Math.min(1, (now - introInicio) / 2800) : 0;
+    const ease = 1 - Math.pow(1 - intro, 3);
+
+    // cámara: posición sobre la ruta, mirando un poco más adelante
+    ruta.getPointAt(clamp(tCur, 0, 1), pos);
+    ruta.getPointAt(clamp(tCur + 0.045, 0, 1), mira);
+    adelante.subVectors(mira, pos).normalize();
+    lateral.crossVectors(arriba, adelante).normalize();
+    const hx = camera.aspect < 1.1 ? 0 : 1; // en pantallas angostas la red va centrada
+    pos.x *= hx;
+    pos.addScaledVector(lateral, -mouseS.x * 1.4);
+    pos.y += mouseS.y * 1.0;
+    pos.z += (1 - ease) * 45;
+    camera.position.copy(pos);
+    mira.x = mira.x * hx - mouseS.x * 2.5;
+    mira.y += mouseS.y * 1.8;
+    camera.lookAt(mira);
+
+    // onda de activación de la entrada a la salida
+    for (const { malla, lista } of mallas) {
+      for (let i = 0; i < lista.length; i++) {
+        const n = lista[i];
+        const w = 0.5 + 0.5 * Math.sin(tiempo * 1.6 - n.li * 1.1 + n.r * 0.8);
+        if (n.ganadora) color.copy(CIAN).multiplyScalar((1.15 + 0.25 * w) * ease);
+        else color.copy(base).lerp(activo, Math.pow(w, 6) * (0.55 + 0.45 * n.r)).multiplyScalar(ease);
+        malla.setColorAt(i, color);
+      }
+      malla.instanceColor.needsUpdate = true;
+      malla.material.opacity = ease;
     }
-
-    // mouse suavizado (fuera de la ventana = sin efecto)
-    if (mouseT.x > 5) {
-      mouse.set(9, 9);
-      mouseS.multiplyScalar(Math.exp(-dt * 2));
-    } else {
-      if (mouse.x > 5) mouse.copy(mouseT);
-      mouse.lerp(mouseT, 1 - Math.exp(-dt * 8));
-      mouseS.lerp(mouseT, 1 - Math.exp(-dt * 2));
-    }
-
-    const i = Math.min(2, Math.floor(sCur)), f = sCur - i;
-    const a = ENCUADRE[i], b = ENCUADRE[i + 1];
-    const angosto = camera.aspect < 1 ? Math.min(1.9, 0.85 / camera.aspect) : 1;
-    const camZ = lerp(a.z, b.z, f) * angosto;
-    const gx = compacto || camera.aspect < 1.1 ? 0 : lerp(a.x, b.x, f);
-    grupo.position.x = gx;
-    const visionW = Math.max(0, 1 - Math.abs(sCur - 2));
-    grupo.rotation.y = Math.sin(tiempo * 0.08) * 0.5 * (1 - visionW) + mouseS.x * 0.15;
-    grupo.rotation.x = -mouseS.y * 0.08 + Math.sin(tiempo * 0.05) * 0.05 * (1 - visionW);
-    camera.position.set(mouseS.x * 2.5, mouseS.y * 1.6, camZ);
-    camera.lookAt(gx * 0.6, 0, 0);
-
-    uniforms.uTime.value = tiempo;
-    uniforms.uStage.value = sCur;
-    uniforms.uFocus.value = camZ;
-    uniforms.uOpacity.value = lerp(a.op, b.op, f);
-    uniforms.uMouse.value.copy(mouse);
+    lineasMat.opacity = 0.16 * ease;
+    recuadrosMat.opacity = 0.75 * ease;
+    cuboMat.opacity = 0.9 * ease;
+    polvoMat.opacity = 0.55 * ease;
+    comunes.uOpacity.value = ease;
+    comunes.uTime.value = tiempo;
+    logo.rotation.y = Math.PI / 4 + Math.sin(tiempo * 0.3) * 0.4;
 
     if (composer) composer.render(); else renderer.render(scene, camera);
-    hud.actualizar(sCur);
+    hud.actualizar(etapa);
   }
   requestAnimationFrame(frame);
   return true;

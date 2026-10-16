@@ -503,7 +503,7 @@ function iniciar() {
   const grupoConv = new THREE.Group();
   grupoConv.position.set(0, 5, 22);
   scene.add(grupoConv);
-  const CELDA = 0.13;
+  const CELDA = 0.115;
   let GW = 64, GH = 36, entradaPx = null, salida = null, salidaTex = null, kernelInfo = null;
   const uPlanos = [];
   const kernelMat = new THREE.LineBasicMaterial({ color: BLANCO, transparent: true, opacity: 0, toneMapped: false });
@@ -633,14 +633,16 @@ function iniciar() {
   };
 
   // Paradas de cámara (s = etapa continua 0–3). "corre" desplaza el foco hacia la
-  // izquierda de la cámara, así el objeto queda en la mitad derecha, libre del texto.
+  // izquierda de la cámara, así el objeto queda en la mitad derecha, libre del texto;
+  // con valores negativos queda en la mitad izquierda.
   const PARADAS = [
     { s: 0.0, cam: V(25, 8, 36), foco: V(0, -1, 0), corre: 9 },
     { s: 0.6, cam: V(40, 6, 24), foco: V(0, 0, 0), corre: 10 },
-    { s: 1.0, cam: V(44, 4, 4), foco: V(0, 0, -1), corre: 9 },
-    { s: 1.55, cam: V(30, 14, -26), foco: V(0, 0, -2), corre: 8 },
-    { s: 2.0, cam: V(-8, 1.5, 50), foco: V(0, -1, 22), corre: 8 },
-    { s: 2.5, cam: V(-4, 2, 49), foco: V(0, -1, 22), corre: 8 },
+    // en servicios la lista va a la derecha: el cerebro pasa a la izquierda
+    { s: 1.0, cam: V(44, 4, 4), foco: V(0, 0, -1), corre: -10 },
+    { s: 1.55, cam: V(30, 14, -26), foco: V(0, 0, -2), corre: -9 },
+    { s: 2.0, cam: V(-8, 1.5, 50), foco: V(0, -1, 22), corre: 7 },
+    { s: 2.5, cam: V(-4, 2, 49), foco: V(0, -1, 22), corre: 7 },
     { s: 3.0, cam: V(34, 6, 30), foco: V(0, 0, 0), corre: 11 },
   ];
   const rutaCam = new THREE.CatmullRomCurve3(PARADAS.map(p => p.cam), false, 'centripetal');

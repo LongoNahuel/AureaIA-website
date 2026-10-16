@@ -53,13 +53,16 @@
     <div class="container">
       <div class="hero-grid">
         <div class="hero-text">
-          <span class="stage-eyebrow">01 · Datos</span>
+          <span class="stage-eyebrow"><b>01</b>Datos</span>
           <h1>Transformamos datos<br>en <span class="gradient-text">decisiones.</span></h1>
           <p class="hero-sub">Desarrollamos soluciones de IA que automatizan, predicen y escalan con tu negocio.</p>
           <div class="hero-actions">
             <a href="#servicios" class="btn-primary">Ver Servicios</a>
             <a href="#contacto" class="btn-ghost">Hablemos</a>
           </div>
+        </div>
+      </div>
+      <div class="hero-foot">
           <div class="hero-stats">
             <div class="stat">
               <span class="stat-num">+20</span>
@@ -76,7 +79,6 @@
               <span class="stat-label">Personalizado</span>
             </div>
           </div>
-        </div>
         <div class="hero-code-wrap">
           <div class="code-window" id="hero-code">
             <div class="code-header">
@@ -98,9 +100,10 @@
 
   <!-- Services -->
   <section class="services-section" id="servicios">
-    <div class="container">
+    <div class="container services-layout">
+      <div class="services-col">
       <div class="section-header reveal">
-        <span class="stage-eyebrow">02 · Neuronas y sinapsis</span>
+        <span class="stage-eyebrow"><b>02</b>Neuronas y sinapsis</span>
         <h2>Lo que hacemos</h2>
         <p>Soluciones de IA diseñadas para impulsar la transformación digital de tu negocio.</p>
       </div>
@@ -148,6 +151,7 @@
           <p>Optimizamos flujos de trabajo con RPA e IA: procesos repetitivos automatizados e integración de sistemas.</p>
         </div>
       </div>
+      </div>
     </div>
   </section>
 
@@ -155,7 +159,7 @@
   <section class="portfolio-section" id="historias">
     <div class="container">
       <div class="section-header reveal">
-        <span class="stage-eyebrow">03 · Proceso convolucional</span>
+        <span class="stage-eyebrow"><b>03</b>Proceso convolucional</span>
         <h2>Casos de Éxito</h2>
         <p>Soluciones de IA aplicadas en escenarios reales.</p>
       </div>
@@ -164,7 +168,7 @@
       <div class="ascii-panel" id="asciiPanel" hidden>
         <div class="ascii-panel-head">
           <span class="badge">Demo en vivo · Render ASCII</span>
-          <p>Estos videos están dibujados con <strong>caracteres ASCII</strong>. Cada cuadro se reconstruye en tu navegador con un shader WebGL: cada letra toma el color y el brillo del píxel original. Bajá la fidelidad para ver los caracteres, activá <strong>Comparar</strong> y pasá el mouse sobre un video, o tocá un caso para ver el video original.</p>
+          <p>Estos videos se dibujan con <strong>caracteres ASCII</strong> en tu navegador: cada letra toma el color y el brillo del píxel original. Bajá la fidelidad para ver las letras, o activá <strong>Comparar</strong> y pasá el mouse por un video.</p>
         </div>
         <div class="ascii-controls" role="group" aria-label="Ajustes del render ASCII">
           <div class="ascii-ctl">
@@ -272,7 +276,7 @@
     <div class="container">
       <div class="contact-wrapper">
         <div class="contact-info reveal">
-          <span class="stage-eyebrow">04 · Entrenamiento</span>
+          <span class="stage-eyebrow"><b>04</b>Entrenamiento</span>
           <canvas id="contact-canvas" class="contact-canvas" aria-label="Hablemos"></canvas>
           <p>Transformemos tu idea en realidad. Contáctanos y descubrí cómo la IA puede impulsar tu negocio.</p>
           <div class="contact-details">
@@ -295,17 +299,19 @@
           </div>
         </div>
         <form class="contact-form reveal" id="contactForm">
-          <div class="form-group">
-            <input type="text" name="nombre" placeholder="Nombre completo" required>
+          <div class="form-row">
+            <div class="form-group">
+              <input type="text" name="nombre" placeholder="Nombre completo" aria-label="Nombre completo" autocomplete="name" required>
+            </div>
+            <div class="form-group">
+              <input type="email" name="email" placeholder="Email" aria-label="Email" autocomplete="email" required>
+            </div>
           </div>
           <div class="form-group">
-            <input type="email" name="email" placeholder="Email" required>
+            <input type="tel" name="telefono" placeholder="Teléfono (opcional)" aria-label="Teléfono" autocomplete="tel">
           </div>
           <div class="form-group">
-            <input type="tel" name="telefono" placeholder="Teléfono (opcional)">
-          </div>
-          <div class="form-group">
-            <textarea name="mensaje" placeholder="Contanos tu proyecto..." rows="5" required></textarea>
+            <textarea name="mensaje" placeholder="Contanos tu proyecto..." aria-label="Mensaje" rows="4" required></textarea>
           </div>
           <button type="submit" class="btn-submit">Enviar Mensaje</button>
         </form>

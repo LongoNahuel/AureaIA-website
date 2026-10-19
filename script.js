@@ -6,7 +6,8 @@ window.addEventListener('load', () => {
     setTimeout(() => loading.style.display = 'none', 500);
   }, 400);
 
-  if (typeof particlesJS !== 'undefined') initParticles();
+  // Con la escena 3D activa (immersive.js) las partículas 2D no hacen falta
+  if (typeof particlesJS !== 'undefined' && !window.AureaImmersive) initParticles();
 
   const heroCode = document.getElementById('hero-code');
   if (heroCode) {
@@ -191,10 +192,12 @@ document.querySelectorAll('a[href^="#"]').forEach(anchor => {
     return;
   }
 
-  // Section headers
+  // Section headers: el título aparece desde una máscara
   document.querySelectorAll('.section-header.reveal').forEach(el => {
     inView(el, () => {
       animate(el, { opacity: [0, 1], y: [24, 0] }, { duration: 0.6, easing: [0.25, 1, 0.5, 1] });
+      const h2 = el.querySelector('h2');
+      if (h2) animate(h2, { clipPath: ['inset(0 0 100% 0)', 'inset(0 0 0% 0)'], y: [20, 0] }, { duration: 0.85, delay: 0.1, easing: [0.22, 1, 0.36, 1] });
     }, { amount: 0.2 });
   });
 
@@ -225,41 +228,6 @@ document.querySelectorAll('a[href^="#"]').forEach(anchor => {
     }, { amount: 0.15 });
   });
 })();
-
-// Portfolio videos — play on hover (desktop)
-// Las tarjetas con render ASCII (ascii-video.js) se reproducen solas mientras están en pantalla.
-const isTouchDevice = window.matchMedia('(hover: none)').matches;
-const usesAscii = card => card.classList.contains('ascii-active');
-
-document.querySelectorAll('.portfolio-card').forEach(card => {
-  const video = card.querySelector('video');
-  if (!video) return;
-
-  if (!isTouchDevice) {
-    card.addEventListener('mouseenter', () => {
-      if (!usesAscii(card)) video.play().catch(() => {});
-    });
-    card.addEventListener('mouseleave', () => {
-      if (usesAscii(card)) return;
-      video.pause();
-      video.currentTime = 0;
-    });
-  }
-});
-
-// Portfolio videos — play when in view (mobile / touch)
-if (isTouchDevice) {
-  const videoObserver = new IntersectionObserver((entries) => {
-    entries.forEach(entry => {
-      const video = entry.target.querySelector('video');
-      if (!video || usesAscii(entry.target)) return;
-      if (entry.isIntersecting) video.play().catch(() => {});
-      else { video.pause(); video.currentTime = 0; }
-    });
-  }, { threshold: 0.5 });
-
-  document.querySelectorAll('.portfolio-card').forEach(card => videoObserver.observe(card));
-}
 
 // Contact form → WhatsApp
 const contactForm = document.getElementById('contactForm');
@@ -368,71 +336,107 @@ function initFooterParticles() {
 }
 
 // Contact section — particle text morphing
+// "Hablemos" armado con partículas. Para que se lea bien: canvas a la densidad de la
+// pantalla, puntos chicos y densos (muestreo en panal), poco temblor y, debajo, la
+// palabra nítida con un degradé suave que aparece cuando las partículas llegan.
 function initContactParticles() {
   const canvas = document.getElementById('contact-canvas');
   if (!canvas) return;
 
   const ctx = canvas.getContext('2d');
+  const PALABRA = 'Hablemos';
+  const fuente = size => `700 ${size}px Inter, -apple-system, "Segoe UI", sans-serif`;
   let particles = [];
   let animId = null;
   let running = false;
   let frame = 0;
+  let W = 0, H = 0, texto = null;
 
   function setSize() {
-    canvas.width = canvas.offsetWidth;
-    canvas.height = canvas.offsetHeight;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    W = canvas.offsetWidth;
+    H = canvas.offsetHeight;
+    canvas.width = Math.round(W * dpr);
+    canvas.height = Math.round(H * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
 
   function sampleText() {
     const off = document.createElement('canvas');
-    off.width = canvas.width;
-    off.height = canvas.height;
     const oc = off.getContext('2d');
-    const fontSize = Math.floor(canvas.height * 0.68);
-    oc.font = `700 ${fontSize}px Inter, -apple-system, sans-serif`;
+    // tamaño que entra en el ancho disponible
+    let size = Math.floor(H * 0.78);
+    oc.font = fuente(size);
+    const ancho = oc.measureText(PALABRA).width;
+    if (ancho > W * 0.96) size = Math.floor(size * W * 0.96 / ancho);
+    texto = { size, x: W / 2, y: H / 2 };
+    // se rasteriza a 3× para ubicar bien los bordes de cada letra
+    const k = 3;
+    off.width = Math.round(W * k);
+    off.height = Math.round(H * k);
+    oc.scale(k, k);
+    oc.font = fuente(size);
     oc.textAlign = 'center';
     oc.textBaseline = 'middle';
     oc.fillStyle = '#fff';
-    oc.fillText('Hablemos', off.width / 2, off.height / 2);
+    oc.fillText(PALABRA, texto.x, texto.y);
     const d = oc.getImageData(0, 0, off.width, off.height).data;
+    const step = Math.max(2.1, size / 36);     // ~2,5 px con la letra de escritorio
     const pts = [];
-    const step = 5;
-    for (let y = 0; y < off.height; y += step) {
-      for (let x = 0; x < off.width; x += step) {
-        if (d[(y * off.width + x) * 4 + 3] > 100) pts.push({ x, y });
+    for (let j = 0, y = step / 2; y < H; j++, y += step * 0.87) {
+      for (let x = (j % 2 ? step / 2 : 0) + step / 2; x < W; x += step) {
+        if (d[(Math.round(y * k) * off.width + Math.round(x * k)) * 4 + 3] > 140) pts.push({ x, y });
       }
     }
-    return pts;
+    return { pts, step };
   }
 
   function build() {
     setSize();
-    const targets = sampleText();
-    const cx = canvas.width / 2, cy = canvas.height / 2;
-    particles = targets.map(t => ({
-      x: cx + (Math.random() - 0.5) * canvas.width * 2.5,
-      y: cy + (Math.random() - 0.5) * canvas.height * 3,
-      tx: t.x, ty: t.y, ox: t.x, oy: t.y,
-      size: 1.2 + Math.random() * 1.3,
-      color: Math.random() > 0.4 ? '#00CCFF' : '#0066FF',
-      ease: 0.04 + Math.random() * 0.04,
-      phase: Math.random() * Math.PI * 2,
-    }));
+    const { pts, step } = sampleText();
+    const cx = W / 2, cy = H / 2;
+    const minX = Math.min(...pts.map(p => p.x)), maxX = Math.max(...pts.map(p => p.x));
+    particles = pts.map(t => {
+      const u = (t.x - minX) / Math.max(1, maxX - minX); // cian a la izquierda, azul a la derecha
+      return {
+        x: cx + (Math.random() - 0.5) * W * 2.5,
+        y: cy + (Math.random() - 0.5) * H * 3,
+        tx: t.x, ty: t.y, ox: t.x, oy: t.y,
+        size: step * (0.36 + Math.random() * 0.1),
+        color: `rgb(0, ${Math.round(204 - 102 * u)}, 255)`,
+        ease: 0.06 + Math.random() * 0.04,
+        phase: Math.random() * Math.PI * 2,
+      };
+    });
+    frame = 0;
   }
 
   function loop() {
     if (!running) return;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.clearRect(0, 0, W, H);
     frame++;
+    // la palabra nítida aparece debajo cuando las partículas ya llegaron
+    const nitida = Math.min(1, Math.max(0, (frame - 45) / 60));
+    if (nitida > 0 && texto) {
+      const g = ctx.createLinearGradient(texto.x - W / 2, 0, texto.x + W / 2, 0);
+      g.addColorStop(0, '#00CCFF');
+      g.addColorStop(1, '#0066FF');
+      ctx.globalAlpha = 0.3 * nitida;
+      ctx.fillStyle = g;
+      ctx.font = fuente(texto.size);
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(PALABRA, texto.x, texto.y);
+    }
+    ctx.globalAlpha = 0.95;
     particles.forEach(p => {
       p.x += (p.tx - p.x) * p.ease;
       p.y += (p.ty - p.y) * p.ease;
       const dx = p.x - p.ox, dy = p.y - p.oy;
-      if (dx * dx + dy * dy < 9) {
-        p.tx = p.ox + Math.sin(frame * 0.018 + p.phase) * 1.8;
-        p.ty = p.oy + Math.cos(frame * 0.013 + p.phase) * 1.8;
+      if (dx * dx + dy * dy < 1) { // ya en su lugar: un leve brillo, sin deformar la letra
+        p.tx = p.ox + Math.sin(frame * 0.02 + p.phase) * 0.35;
+        p.ty = p.oy + Math.cos(frame * 0.015 + p.phase) * 0.35;
       }
-      ctx.globalAlpha = 0.88;
       ctx.fillStyle = p.color;
       ctx.beginPath();
       ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
@@ -445,8 +449,14 @@ function initContactParticles() {
   function start() {
     if (running) return;
     running = true;
-    if (particles.length === 0) build();
-    loop();
+    const arrancar = () => {
+      if (!running) return;
+      if (particles.length === 0) build();
+      loop();
+    };
+    // se espera a Inter para muestrear la letra correcta
+    if (document.fonts && document.fonts.load) document.fonts.load(fuente(80)).then(arrancar, arrancar);
+    else arrancar();
   }
 
   function stop() {
@@ -459,65 +469,18 @@ function initContactParticles() {
   }, { threshold: 0.2 });
   io.observe(canvas);
 
-  window.addEventListener('resize', () => { stop(); build(); start(); }, { passive: true });
+  let anchoPrevio = canvas.offsetWidth;
+  window.addEventListener('resize', () => {
+    if (canvas.offsetWidth === anchoPrevio) return; // en celulares la barra del navegador cambia el alto
+    anchoPrevio = canvas.offsetWidth;
+    stop(); particles = []; start();
+  }, { passive: true });
 }
-
-// Video lightbox
-(function () {
-  const modal = document.getElementById('videoModal');
-  const player = document.getElementById('videoModalPlayer');
-  const tagEl = document.getElementById('videoModalTag');
-  const titleEl = document.getElementById('videoModalTitle');
-  const descEl = document.getElementById('videoModalDesc');
-  const closeBtn = document.getElementById('videoModalClose');
-  const backdrop = document.getElementById('videoModalBackdrop');
-
-  if (!modal) return;
-
-  function openModal(card) {
-    const cardVideo = card.querySelector('video');
-    if (cardVideo) { cardVideo.pause(); cardVideo.currentTime = 0; }
-    window.AureaAscii?.pause();
-
-    // El lightbox muestra el video original completo (data-full), no la versión liviana
-    const src = card.dataset.full || card.querySelector('video source')?.src || cardVideo?.currentSrc || '';
-    const tag = card.querySelector('.portfolio-tag')?.textContent || '';
-    const title = card.querySelector('h3')?.textContent || '';
-    const desc = card.querySelector('p')?.textContent || '';
-
-    player.src = src;
-    player.load();
-    tagEl.textContent = tag;
-    titleEl.textContent = title;
-    descEl.textContent = desc;
-
-    modal.classList.add('show');
-    document.body.style.overflow = 'hidden';
-    player.play().catch(() => {});
-  }
-
-  function closeModal() {
-    modal.classList.remove('show');
-    document.body.style.overflow = '';
-    player.pause();
-    player.src = '';
-    window.AureaAscii?.resume();
-  }
-
-  document.querySelectorAll('.portfolio-card').forEach(card => {
-    card.addEventListener('click', () => openModal(card));
-  });
-
-  closeBtn.addEventListener('click', closeModal);
-  backdrop.addEventListener('click', closeModal);
-  window.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') closeModal();
-  });
-})();
 
 // Cookie banner
 document.addEventListener('DOMContentLoaded', () => {
   initContactParticles();
+  // La red de partículas conectadas de contacto y pie se mantiene también con el fondo 3D
   initContactBgParticles();
   initFooterParticles();
 

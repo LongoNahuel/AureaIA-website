@@ -9,6 +9,14 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.min.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
 </head>
 <body>
 
@@ -51,6 +59,9 @@
             <a href="#servicios" class="btn-primary">Ver Servicios</a>
             <a href="#contacto" class="btn-ghost">Hablemos</a>
           </div>
+        </div>
+      </div>
+      <div class="hero-foot">
           <div class="hero-stats">
             <div class="stat">
               <span class="stat-num">+20</span>
@@ -67,7 +78,6 @@
               <span class="stat-label">Personalizado</span>
             </div>
           </div>
-        </div>
         <div class="hero-code-wrap">
           <div class="code-window" id="hero-code">
             <div class="code-header">
@@ -89,7 +99,8 @@
 
   <!-- Services -->
   <section class="services-section" id="servicios">
-    <div class="container">
+    <div class="container services-layout">
+      <div class="services-col">
       <div class="section-header reveal">
         <h2>Lo que hacemos</h2>
         <p>Soluciones de IA diseñadas para impulsar la transformación digital de tu negocio.</p>
@@ -138,6 +149,7 @@
           <p>Optimizamos flujos de trabajo con RPA e IA: procesos repetitivos automatizados e integración de sistemas.</p>
         </div>
       </div>
+      </div>
     </div>
   </section>
 
@@ -149,108 +161,152 @@
         <p>Soluciones de IA aplicadas en escenarios reales.</p>
       </div>
 
-      <!-- Demo: los videos se dibujan con caracteres ASCII (ver ascii-video.js) -->
-      <div class="ascii-panel" id="asciiPanel" hidden>
-        <div class="ascii-panel-head">
-          <span class="badge">Demo en vivo · Render ASCII</span>
-          <p>Estos videos están dibujados con <strong>caracteres ASCII</strong>. Cada cuadro se reconstruye en tu navegador con un shader WebGL: cada letra toma el color y el brillo del píxel original. Bajá la fidelidad para ver los caracteres, activá <strong>Comparar</strong> y pasá el mouse sobre un video, o tocá un caso para ver el video original.</p>
-        </div>
-        <div class="ascii-controls" role="group" aria-label="Ajustes del render ASCII">
-          <div class="ascii-ctl">
-            <label for="asciiCols">Columnas</label>
-            <input type="range" id="asciiCols" min="160" max="720" step="8" value="360">
-            <output id="asciiColsOut" for="asciiCols">360 × 121</output>
-          </div>
-          <div class="ascii-ctl">
-            <label for="asciiFid">Fidelidad</label>
-            <input type="range" id="asciiFid" min="0" max="1" step="0.05" value="0.8">
-            <output id="asciiFidOut" for="asciiFid">80%</output>
-          </div>
-          <div class="ascii-ctl">
-            <label for="asciiCon">Contraste</label>
-            <input type="range" id="asciiCon" min="0.6" max="1.8" step="0.05" value="1">
-            <output id="asciiConOut" for="asciiCon">1.00</output>
-          </div>
-          <div class="ascii-ctl">
-            <span id="asciiColorLbl">Color</span>
-            <div class="ascii-swatches" role="group" aria-labelledby="asciiColorLbl">
-              <button type="button" class="ascii-swatch" data-color="video" aria-label="Color del video" aria-pressed="true"></button>
-              <button type="button" class="ascii-swatch" data-color="#00CCFF" style="--c:#00CCFF" aria-label="Cian" aria-pressed="false"></button>
-              <button type="button" class="ascii-swatch" data-color="#0066FF" style="--c:#0066FF" aria-label="Azul" aria-pressed="false"></button>
-              <button type="button" class="ascii-swatch" data-color="#F5F5F5" style="--c:#F5F5F5" aria-label="Blanco" aria-pressed="false"></button>
-            </div>
-          </div>
-          <label class="ascii-switch"><input type="checkbox" id="asciiCompare"> Comparar con el original</label>
-          <button type="button" class="btn-ghost btn-sm" id="asciiReset">Restablecer</button>
-        </div>
-      </div>
-
+      <!-- Cada caso lleva una ilustración (SVG). Para mostrar una imagen real del caso, reemplazar el <svg>
+           de su <figure class="portfolio-media"> por <img src="images/casos/archivo.jpg" alt="Descripción">:
+           el estilo ya la ajusta al recuadro. -->
       <div class="portfolio-grid">
-        <div class="portfolio-card featured reveal" data-full="videos/Analítica de robo_urto.mp4.mp4">
-          <div class="portfolio-video">
-            <div class="portfolio-expand-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg></div>
-            <video loop muted playsinline preload="metadata">
-              <source src="videos/web/analitica-robo.mp4" type="video/mp4">
-            </video>
-          </div>
+        <article class="portfolio-card featured reveal">
+          <figure class="portfolio-media">
+            <svg class="caso-ilus" viewBox="0 0 480 270" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M36 56V30H62M418 30H444V56M444 214V240H418M62 240H36V214" stroke="#E8F6FF" stroke-opacity="0.45" stroke-width="2"/>
+<circle cx="56" cy="48" r="4" fill="#FF4D6D"/><path d="M68 48h34" stroke="#E8F6FF" stroke-opacity=".3" stroke-width="3"/>
+<rect x="66" y="74" width="140" height="140" rx="6" stroke="#8C73FF" stroke-width="1.5" stroke-dasharray="5 6" fill="#8C73FF" fill-opacity=".05"/>
+<path d="M80 116h112M80 158h112M80 200h112" stroke="#8C73FF" stroke-opacity=".75" stroke-width="2"/>
+<g fill="#8C73FF" fill-opacity=".35"><rect x="86" y="94" width="14" height="22" rx="2"/><rect x="106" y="100" width="12" height="16" rx="2"/><rect x="124" y="92" width="18" height="24" rx="2"/><rect x="148" y="98" width="12" height="18" rx="2"/><rect x="166" y="94" width="16" height="22" rx="2"/>
+<rect x="86" y="140" width="18" height="18" rx="2"/><rect x="110" y="136" width="12" height="22" rx="2"/><rect x="128" y="142" width="16" height="16" rx="2"/><rect x="172" y="138" width="14" height="20" rx="2"/>
+<rect x="88" y="182" width="12" height="18" rx="2"/><rect x="106" y="178" width="18" height="22" rx="2"/><rect x="132" y="184" width="14" height="16" rx="2"/><rect x="152" y="180" width="16" height="20" rx="2"/></g>
+<rect x="150" y="136" width="16" height="22" rx="2" stroke="#FFD166" stroke-width="1.5" stroke-dasharray="3 3"/>
+<rect x="300" y="118" width="116" height="96" rx="6" stroke="#00CCFF" stroke-width="1.5" stroke-dasharray="5 6" fill="#00CCFF" fill-opacity=".05"/>
+<path d="M328 148h9l9 30h36l7-22h-47" stroke="#00CCFF" stroke-width="2"/><circle cx="352" cy="190" r="4" stroke="#00CCFF" stroke-width="2"/><circle cx="376" cy="190" r="4" stroke="#00CCFF" stroke-width="2"/>
+<path d="M160 150C204 156 226 186 236 214" stroke="#FFD166" stroke-width="2.2" stroke-dasharray="1 8"/>
+<g fill="#FFD166"><circle cx="160" cy="150" r="3"/><circle cx="198" cy="160" r="2.5"/><circle cx="222" cy="184" r="2.5"/></g>
+<rect x="218" y="200" width="40" height="32" rx="4" stroke="#FF4D6D" stroke-width="2" fill="#FF4D6D" fill-opacity=".1"/>
+<g fill="#E8F6FF" fill-opacity=".85"><circle cx="230" cy="222" r="2"/><circle cx="236" cy="210" r="2"/><circle cx="242" cy="208" r="2"/><circle cx="248" cy="210" r="2"/><circle cx="246" cy="222" r="2"/></g>
+<g transform="translate(388 64)"><path d="M0-20L20 15H-20Z" stroke="#FF4D6D" stroke-width="2" fill="#FF4D6D" fill-opacity=".14"/><path d="M0-7v10" stroke="#FF4D6D" stroke-width="2.6"/><circle cy="9" r="1.7" fill="#FF4D6D"/></g>
+<path d="M300 228h50M358 228h24" stroke="#E8F6FF" stroke-opacity=".22" stroke-width="3"/>
+</svg>
+          </figure>
           <div class="portfolio-info">
             <span class="portfolio-tag">Seguridad</span>
             <h3>Analítica de Robo</h3>
-            <p>Detección de comportamientos sospechosos en tiempo real mediante análisis de vigilancia con IA. Algoritmos de anomalías y reconocimiento de patrones para prevenir robos en espacios comerciales.</p>
+            <p>Videovigilancia inteligente que detecta comportamientos sospechosos en comercios, en tiempo real. La imagen de la cámara se divide en zonas —estanterías, zona de robo y área de compras— y la IA sigue la trayectoria de las manos para advertir cuando un artículo llega a la zona de robo sin pasar por la de compra.</p>
+            <ul class="caso-puntos">
+              <li>Zonas de monitoreo configurables sobre la cámara, con tiempo límite y nivel de confianza ajustables.</li>
+              <li>Alerta inmediata con hora, tipo de evento y acciones recomendadas para el personal de seguridad.</li>
+              <li>Registro de alertas, estadísticas de la sesión y reportes para documentar cada incidente.</li>
+            </ul>
+            <ul class="caso-tech" aria-label="Tecnologías"><li>Visión por computadora</li><li>Detección de manos</li><li>Python</li><li>OpenCV</li></ul>
           </div>
-        </div>
-        <div class="portfolio-card reveal" data-full="videos/ChatBot.mp4.mp4">
-          <div class="portfolio-video">
-            <div class="portfolio-expand-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg></div>
-            <video loop muted playsinline preload="metadata">
-              <source src="videos/web/chatbot.mp4" type="video/mp4">
-            </video>
-          </div>
+        </article>
+        <article class="portfolio-card reveal">
+          <figure class="portfolio-media">
+            <svg class="caso-ilus" viewBox="0 0 480 270" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+<path d="M42 116h52v16a26 26 0 0 1-52 0z" stroke="#00CCFF" stroke-width="1.8"/><circle cx="68" cy="134" r="8" stroke="#00CCFF" stroke-width="1.8"/><path d="M36 116h64" stroke="#00CCFF" stroke-width="1.8"/>
+<path d="M100 134h12" stroke="#00CCFF" stroke-opacity=".6" stroke-width="2" stroke-dasharray="2 5"/>
+<rect x="118" y="24" width="250" height="222" rx="14" stroke="#E8F6FF" stroke-opacity=".22" stroke-width="1.5" fill="#0A0F18" fill-opacity=".55"/>
+<circle cx="144" cy="50" r="11" fill="#0066FF" fill-opacity=".45" stroke="#00CCFF" stroke-width="1.5"/>
+<path d="M164 45h78M164 56h44" stroke="#E8F6FF" stroke-opacity=".45" stroke-width="3"/>
+<path d="M118 74h250" stroke="#E8F6FF" stroke-opacity=".12"/>
+<rect x="232" y="86" width="122" height="36" rx="10" fill="#0066FF" fill-opacity=".6"/>
+<path d="M244 99h96M244 109h58" stroke="#E8F6FF" stroke-opacity=".85" stroke-width="3"/>
+<rect x="132" y="132" width="180" height="78" rx="10" stroke="#00CCFF" stroke-opacity=".45" stroke-width="1.5" fill="#00CCFF" fill-opacity=".06"/>
+<g stroke="#00CCFF" stroke-width="1.5" fill="#00CCFF" fill-opacity=".25"><circle cx="148" cy="150" r="6"/><circle cx="148" cy="171" r="6"/><circle cx="148" cy="192" r="6"/></g>
+<path d="M162 150h118M162 171h96M162 192h132" stroke="#E8F6FF" stroke-opacity=".55" stroke-width="3"/>
+<rect x="132" y="218" width="50" height="18" rx="9" stroke="#E8F6FF" stroke-opacity=".2"/>
+<circle cx="146" cy="227" r="3" fill="#00CCFF" fill-opacity=".35"/><circle cx="157" cy="227" r="3" fill="#00CCFF" fill-opacity=".65"/><circle cx="168" cy="227" r="3" fill="#00CCFF"/>
+<path d="M412 58l5 15 15 5-15 5-5 15-5-15-15-5 15-5z" stroke="#8C73FF" stroke-width="1.5" fill="#8C73FF" fill-opacity=".35"/>
+<path d="M432 112l3 8 8 3-8 3-3 8-3-8-8-3 8-3z" stroke="#8C73FF" stroke-width="1.2" fill="#8C73FF" fill-opacity=".3"/>
+<path d="M392 178h52M392 190h36M392 202h44" stroke="#E8F6FF" stroke-opacity=".18" stroke-width="3"/>
+</svg>
+          </figure>
           <div class="portfolio-info">
             <span class="portfolio-tag">NLP</span>
             <h3>ChatBot IA</h3>
-            <p>Asistente conversacional que comprende lenguaje natural y automatiza atención al cliente 24/7.</p>
+            <p>Asistente conversacional de soporte técnico que responde en lenguaje natural las 24 horas. Entiende consultas como “¿cómo actualizo el firmware de mi cámara desde la app?” y devuelve una guía paso a paso, los problemas más comunes y cómo verificar el resultado.</p>
+            <ul class="caso-puntos">
+              <li>Especializado en equipos de videovigilancia: configuración, firmware, códigos de error y redes.</li>
+              <li>Atiende por Telegram, sin instalar nada, con un modo de chat libre para consultas técnicas abiertas.</li>
+              <li>Panel web con los clientes registrados y el seguimiento de cada conversación.</li>
+            </ul>
+            <ul class="caso-tech" aria-label="Tecnologías"><li>LLM</li><li>Telegram</li><li>Python</li><li>Flask</li></ul>
           </div>
-        </div>
-        <div class="portfolio-card reveal" data-full="videos/Detección de celulares.mp4.mp4">
-          <div class="portfolio-video">
-            <div class="portfolio-expand-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg></div>
-            <video loop muted playsinline preload="metadata">
-              <source src="videos/web/deteccion-celulares.mp4" type="video/mp4">
-            </video>
-          </div>
+        </article>
+        <article class="portfolio-card reveal">
+          <figure class="portfolio-media">
+            <svg class="caso-ilus" viewBox="0 0 480 270" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+<circle cx="160" cy="98" r="32" stroke="#E8F6FF" stroke-opacity=".4" stroke-width="1.6"/>
+<path d="M84 246c6-56 40-86 76-86s70 30 76 86" stroke="#E8F6FF" stroke-opacity=".4" stroke-width="1.6"/>
+<path d="M234 236c10-30 12-70 6-104" stroke="#E8F6FF" stroke-opacity=".4" stroke-width="1.6"/>
+<rect x="200" y="80" width="26" height="46" rx="5" stroke="#00CCFF" stroke-width="2" fill="#00CCFF" fill-opacity=".14"/>
+<path d="M208 87h10" stroke="#00CCFF" stroke-width="2"/>
+<path d="M188 80V68H200M226 68H238V80M238 126V138H226M200 138H188V126" stroke="#00CCFF" stroke-opacity="1" stroke-width="2.2"/>
+<rect x="188" y="54" width="50" height="9" rx="2" fill="#00CCFF" fill-opacity=".85"/>
+<rect x="188" y="146" width="50" height="4" rx="2" fill="#E8F6FF" fill-opacity=".15"/><rect x="188" y="146" width="37" height="4" rx="2" fill="#00CCFF"/>
+<path d="M238 100C276 100 286 63 318 63" stroke="#00CCFF" stroke-opacity=".6" stroke-width="1.5" stroke-dasharray="2 6"/>
+<rect x="318" y="36" width="112" height="54" rx="6" stroke="#E8F6FF" stroke-opacity=".22" stroke-width="1.5" fill="#0A0F18" fill-opacity=".5"/><circle cx="344" cy="56" r="9" stroke="#E8F6FF" stroke-opacity=".35" stroke-width="1.3"/><path d="M326 88c3-13 10-19 18-19s15 6 18 19" stroke="#E8F6FF" stroke-opacity=".35" stroke-width="1.3"/><rect x="355" y="48" width="8" height="14" rx="2" stroke="#00CCFF" stroke-width="1.5"/><path d="M376 52h42M376 63h30M376 74h36" stroke="#E8F6FF" stroke-opacity=".3" stroke-width="3"/><rect x="318" y="108" width="112" height="54" rx="6" stroke="#E8F6FF" stroke-opacity=".22" stroke-width="1.5" fill="#0A0F18" fill-opacity=".5"/><circle cx="344" cy="128" r="9" stroke="#E8F6FF" stroke-opacity=".35" stroke-width="1.3"/><path d="M326 160c3-13 10-19 18-19s15 6 18 19" stroke="#E8F6FF" stroke-opacity=".35" stroke-width="1.3"/><rect x="355" y="120" width="8" height="14" rx="2" stroke="#00CCFF" stroke-width="1.5"/><path d="M376 124h42M376 135h30M376 146h36" stroke="#E8F6FF" stroke-opacity=".3" stroke-width="3"/><rect x="318" y="180" width="112" height="54" rx="6" stroke="#E8F6FF" stroke-opacity=".22" stroke-width="1.5" fill="#0A0F18" fill-opacity=".5"/><circle cx="344" cy="200" r="9" stroke="#E8F6FF" stroke-opacity=".35" stroke-width="1.3"/><path d="M326 232c3-13 10-19 18-19s15 6 18 19" stroke="#E8F6FF" stroke-opacity=".35" stroke-width="1.3"/><rect x="355" y="192" width="8" height="14" rx="2" stroke="#00CCFF" stroke-width="1.5"/><path d="M376 196h42M376 207h30M376 218h36" stroke="#E8F6FF" stroke-opacity=".3" stroke-width="3"/></svg>
+          </figure>
           <div class="portfolio-info">
             <span class="portfolio-tag">Computer Vision</span>
             <h3>Detección de Celulares</h3>
-            <p>Identificación automática del uso de teléfonos en entornos controlados para mejorar productividad.</p>
+            <p>Identifica automáticamente el uso de teléfonos en lugares donde está restringido: puestos de trabajo, líneas de producción, salas de examen o áreas seguras. Cada detección queda guardada con su captura, fecha, hora y nivel de confianza para revisarla después.</p>
+            <ul class="caso-puntos">
+              <li>Detección de objetos en tiempo real sobre el video de la cámara.</li>
+              <li>Dashboard forense con capturas recientes, estadísticas y exportación de reportes.</li>
+              <li>Sensibilidad ajustable para equilibrar detecciones y falsas alarmas.</li>
+            </ul>
+            <ul class="caso-tech" aria-label="Tecnologías"><li>YOLOv8</li><li>OpenCV</li><li>Python</li></ul>
           </div>
-        </div>
-        <div class="portfolio-card reveal" data-full="videos/Detección de manos.mp4.mp4">
-          <div class="portfolio-video">
-            <div class="portfolio-expand-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg></div>
-            <video loop muted playsinline preload="metadata">
-              <source src="videos/web/deteccion-manos.mp4" type="video/mp4">
-            </video>
-          </div>
+        </article>
+        <article class="portfolio-card reveal">
+          <figure class="portfolio-media">
+            <svg class="caso-ilus" viewBox="0 0 480 270" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+<rect x="140" y="48" width="196" height="206" rx="8" stroke="#00CCFF" stroke-opacity=".35" stroke-width="1.5" stroke-dasharray="5 6"/>
+<path d="M240 236L212 218L190 198L175 176L164 156M240 236L218 162L213 126L210 102L208 80M218 162L242 156L242 116L242 90L242 66M242 156L265 162L270 126L273 103L275 84M265 162L285 176L296 150L302 132L307 115M240 236L285 176" stroke="#E8F6FF" stroke-opacity=".75" stroke-width="2"/>
+<g fill="#00CCFF"><circle cx="240" cy="236" r="4"/><circle cx="212" cy="218" r="4"/><circle cx="190" cy="198" r="4"/><circle cx="175" cy="176" r="4"/><circle cx="164" cy="156" r="5"/><circle cx="218" cy="162" r="4"/><circle cx="213" cy="126" r="4"/><circle cx="210" cy="102" r="4"/><circle cx="208" cy="80" r="5"/><circle cx="242" cy="156" r="4"/><circle cx="242" cy="116" r="4"/><circle cx="242" cy="90" r="4"/><circle cx="242" cy="66" r="5"/><circle cx="265" cy="162" r="4"/><circle cx="270" cy="126" r="4"/><circle cx="273" cy="103" r="4"/><circle cx="275" cy="84" r="5"/><circle cx="285" cy="176" r="4"/><circle cx="296" cy="150" r="4"/><circle cx="302" cy="132" r="4"/><circle cx="307" cy="115" r="5"/></g>
+<g fill="#E8F6FF"><circle cx="164" cy="156" r="2"/><circle cx="208" cy="80" r="2"/><circle cx="242" cy="66" r="2"/><circle cx="275" cy="84" r="2"/><circle cx="307" cy="115" r="2"/></g>
+<path d="M112 196a132 132 0 0 1 22-112" stroke="#8C73FF" stroke-width="2" stroke-dasharray="3 7"/><path d="M126 90l8-8 3 11" stroke="#8C73FF" stroke-width="2"/>
+<rect x="352" y="48" width="96" height="22" rx="5" fill="#FF4D6D" fill-opacity=".85"/><path d="M364 59h56" stroke="#fff" stroke-opacity=".9" stroke-width="3"/>
+<path d="M352 90h80M352 104h56M352 118h68" stroke="#E8F6FF" stroke-opacity=".2" stroke-width="3"/>
+</svg>
+          </figure>
           <div class="portfolio-info">
             <span class="portfolio-tag">Gestos</span>
             <h3>Detección de Manos</h3>
-            <p>Tracking de movimientos en 3D con 21 landmarks para interfaces gestuales e interacciones sin contacto.</p>
+            <p>Seguimiento de las manos en 3D con 21 puntos de referencia por mano, para crear interfaces gestuales e interacciones sin contacto. El sistema reconoce gestos específicos y los convierte en acciones: desde disparar una alerta hasta enviar un comando al equipo.</p>
+            <ul class="caso-puntos">
+              <li>21 landmarks por mano, con seguimiento de ambas manos a la vez.</li>
+              <li>Gestos configurables que activan alertas o acciones, como bloquear la sesión de la computadora.</li>
+              <li>Pensado para kioscos, salas limpias, accesibilidad y control sin contacto.</li>
+            </ul>
+            <ul class="caso-tech" aria-label="Tecnologías"><li>MediaPipe Hands</li><li>OpenCV</li><li>Python</li></ul>
           </div>
-        </div>
-        <div class="portfolio-card reveal" data-full="videos/Detección de mirada.mp4.mp4">
-          <div class="portfolio-video">
-            <div class="portfolio-expand-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg></div>
-            <video loop muted playsinline preload="metadata">
-              <source src="videos/web/deteccion-mirada.mp4" type="video/mp4">
-            </video>
-          </div>
+        </article>
+        <article class="portfolio-card reveal">
+          <figure class="portfolio-media">
+            <svg class="caso-ilus" viewBox="0 0 480 270" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+<g fill="#00CCFF" fill-opacity=".45"><circle cx="78.4" cy="148.1" r="1.6"/><circle cx="78.9" cy="136.9" r="1.6"/><circle cx="79.1" cy="127.9" r="1.6"/><circle cx="79.2" cy="118.2" r="1.6"/><circle cx="84.3" cy="107.5" r="1.6"/><circle cx="91.9" cy="95.8" r="1.6"/><circle cx="103.2" cy="91.4" r="1.6"/><circle cx="112.4" cy="79.8" r="1.6"/><circle cx="128.0" cy="77.3" r="1.6"/><circle cx="141.6" cy="68.3" r="1.6"/><circle cx="158.9" cy="61.9" r="1.6"/><circle cx="173.9" cy="60.4" r="1.6"/><circle cx="185.7" cy="57.9" r="1.6"/><circle cx="203.0" cy="62.1" r="1.6"/><circle cx="218.4" cy="62.2" r="1.6"/><circle cx="236.8" cy="63.8" r="1.6"/><circle cx="251.2" cy="66.3" r="1.6"/><circle cx="262.1" cy="72.8" r="1.6"/><circle cx="278.4" cy="81.0" r="1.6"/><circle cx="287.2" cy="89.9" r="1.6"/><circle cx="297.3" cy="97.1" r="1.6"/><circle cx="306.6" cy="109.1" r="1.6"/><circle cx="308.6" cy="118.6" r="1.6"/><circle cx="313.3" cy="131.0" r="1.6"/><circle cx="315.4" cy="138.2" r="1.6"/><circle cx="315.4" cy="147.9" r="1.6"/><circle cx="57.2" cy="154.6" r="1.6"/><circle cx="54.0" cy="141.6" r="1.6"/><circle cx="53.7" cy="131.2" r="1.6"/><circle cx="60.4" cy="119.3" r="1.6"/><circle cx="65.3" cy="106.7" r="1.6"/><circle cx="70.4" cy="97.8" r="1.6"/><circle cx="77.7" cy="86.9" r="1.6"/><circle cx="88.9" cy="80.5" r="1.6"/><circle cx="97.9" cy="70.4" r="1.6"/><circle cx="108.0" cy="63.1" r="1.6"/><circle cx="125.4" cy="58.4" r="1.6"/><circle cx="141.2" cy="48.9" r="1.6"/><circle cx="154.2" cy="47.2" r="1.6"/><circle cx="168.2" cy="43.3" r="1.6"/><circle cx="185.7" cy="39.9" r="1.6"/><circle cx="201.7" cy="43.8" r="1.6"/><circle cx="218.7" cy="42.0" r="1.6"/><circle cx="236.4" cy="48.5" r="1.6"/><circle cx="250.2" cy="49.9" r="1.6"/><circle cx="267.8" cy="57.8" r="1.6"/><circle cx="283.2" cy="64.1" r="1.6"/><circle cx="292.6" cy="68.9" r="1.6"/><circle cx="304.3" cy="80.2" r="1.6"/><circle cx="317.5" cy="85.1" r="1.6"/><circle cx="320.8" cy="95.6" r="1.6"/><circle cx="327.3" cy="107.8" r="1.6"/><circle cx="333.7" cy="117.5" r="1.6"/><circle cx="332.6" cy="129.7" r="1.6"/><circle cx="335.1" cy="142.0" r="1.6"/><circle cx="337.0" cy="154.2" r="1.6"/><circle cx="294.1" cy="138.7" r="1.6"/><circle cx="290.3" cy="153.9" r="1.6"/><circle cx="277.7" cy="174.9" r="1.6"/><circle cx="255.9" cy="188.3" r="1.6"/><circle cx="225.6" cy="194.5" r="1.6"/><circle cx="193.6" cy="198.8" r="1.6"/><circle cx="163.1" cy="192.5" r="1.6"/><circle cx="136.6" cy="184.5" r="1.6"/><circle cx="115.8" cy="170.6" r="1.6"/><circle cx="99.8" cy="154.4" r="1.6"/><circle cx="95.6" cy="137.2" r="1.6"/><circle cx="99.9" cy="121.7" r="1.6"/><circle cx="117.4" cy="100.6" r="1.6"/><circle cx="136.9" cy="88.5" r="1.6"/><circle cx="164.9" cy="78.7" r="1.6"/><circle cx="198.1" cy="81.0" r="1.6"/><circle cx="226.1" cy="80.8" r="1.6"/><circle cx="251.1" cy="87.1" r="1.6"/><circle cx="274.3" cy="101.3" r="1.6"/><circle cx="291.2" cy="117.4" r="1.6"/></g>
+<path d="M104 138Q196 62 288 138Q196 214 104 138Z" stroke="#E8F6FF" stroke-opacity=".55" stroke-width="1.8"/>
+<circle cx="212" cy="126" r="30" stroke="#00CCFF" stroke-width="2" fill="#00CCFF" fill-opacity=".1"/>
+<circle cx="212" cy="126" r="12" fill="#00CCFF" fill-opacity=".75"/><circle cx="206" cy="120" r="3.5" fill="#E8F6FF"/>
+<circle cx="212" cy="126" r="40" stroke="#0066FF" stroke-opacity=".5" stroke-dasharray="2 6"/>
+<path d="M212 126L328 56" stroke="#8C73FF" stroke-width="2.2"/><path d="M314 54l14 2-6 13" stroke="#8C73FF" stroke-width="2.2"/>
+<circle cx="396" cy="170" r="22" stroke="#E8F6FF" stroke-opacity=".18"/>
+<path d="M0-7L6 5H-6Z" transform="translate(396.0 134.0) rotate(0)" fill="#E8F6FF" fill-opacity=".18" stroke="none"/><path d="M0-7L6 5H-6Z" transform="translate(421.5 144.5) rotate(45)" fill="#8C73FF" stroke="#8C73FF"/><path d="M0-7L6 5H-6Z" transform="translate(432.0 170.0) rotate(90)" fill="#E8F6FF" fill-opacity=".18" stroke="none"/><path d="M0-7L6 5H-6Z" transform="translate(421.5 195.5) rotate(135)" fill="#E8F6FF" fill-opacity=".18" stroke="none"/><path d="M0-7L6 5H-6Z" transform="translate(396.0 206.0) rotate(180)" fill="#E8F6FF" fill-opacity=".18" stroke="none"/><path d="M0-7L6 5H-6Z" transform="translate(370.5 195.5) rotate(225)" fill="#E8F6FF" fill-opacity=".18" stroke="none"/><path d="M0-7L6 5H-6Z" transform="translate(360.0 170.0) rotate(270)" fill="#E8F6FF" fill-opacity=".18" stroke="none"/><path d="M0-7L6 5H-6Z" transform="translate(370.5 144.5) rotate(315)" fill="#E8F6FF" fill-opacity=".18" stroke="none"/>
+<circle cx="396" cy="170" r="4" fill="#8C73FF"/>
+<rect x="356" y="226" width="80" height="6" rx="3" fill="#E8F6FF" fill-opacity=".15"/><rect x="356" y="226" width="72" height="6" rx="3" fill="#00CCFF"/>
+</svg>
+          </figure>
           <div class="portfolio-info">
             <span class="portfolio-tag">Eye Tracking</span>
             <h3>Detección de Mirada</h3>
-            <p>Análisis de dirección de la mirada en tiempo real para optimizar UX/UI, marketing e investigación.</p>
+            <p>Análisis de la dirección de la mirada en tiempo real a partir de la malla facial y la posición del iris. Indica hacia dónde mira la persona —arriba, abajo, izquierda, derecha y sus combinaciones— con un nivel de confianza, y lo representa en una matriz vectorial 3D.</p>
+            <ul class="caso-puntos">
+              <li>Malla facial de 478 puntos con seguimiento de ambos iris.</li>
+              <li>Métricas en vivo: tiempo de procesamiento y porcentaje de detección.</li>
+              <li>Aplicaciones en UX/UI, marketing, investigación y monitoreo de atención.</li>
+            </ul>
+            <ul class="caso-tech" aria-label="Tecnologías"><li>MediaPipe Face Mesh</li><li>OpenCV</li><li>Python</li></ul>
           </div>
-        </div>
+        </article>
       </div>
     </div>
   </section>
@@ -283,17 +339,19 @@
           </div>
         </div>
         <form class="contact-form reveal" id="contactForm">
-          <div class="form-group">
-            <input type="text" name="nombre" placeholder="Nombre completo" required>
+          <div class="form-row">
+            <div class="form-group">
+              <input type="text" name="nombre" placeholder="Nombre completo" aria-label="Nombre completo" autocomplete="name" required>
+            </div>
+            <div class="form-group">
+              <input type="email" name="email" placeholder="Email" aria-label="Email" autocomplete="email" required>
+            </div>
           </div>
           <div class="form-group">
-            <input type="email" name="email" placeholder="Email" required>
+            <input type="tel" name="telefono" placeholder="Teléfono (opcional)" aria-label="Teléfono" autocomplete="tel">
           </div>
           <div class="form-group">
-            <input type="tel" name="telefono" placeholder="Teléfono (opcional)">
-          </div>
-          <div class="form-group">
-            <textarea name="mensaje" placeholder="Contanos tu proyecto..." rows="5" required></textarea>
+            <textarea name="mensaje" placeholder="Contanos tu proyecto..." aria-label="Mensaje" rows="4" required></textarea>
           </div>
           <button type="submit" class="btn-submit">Enviar Mensaje</button>
         </form>
@@ -342,25 +400,6 @@
     </div>
   </footer>
 
-  <!-- Video Lightbox Modal -->
-  <div class="video-modal" id="videoModal">
-    <div class="video-modal-backdrop" id="videoModalBackdrop"></div>
-    <div class="video-modal-content">
-      <button class="video-modal-close" id="videoModalClose" aria-label="Cerrar">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-      </button>
-      <div class="video-modal-player">
-        <video id="videoModalPlayer" playsinline controls></video>
-      </div>
-      <div class="video-modal-info">
-        <span class="portfolio-tag" id="videoModalTag"></span>
-        <h3 id="videoModalTitle"></h3>
-        <p id="videoModalDesc"></p>
-        <p class="video-modal-note">Video original, sin render ASCII.</p>
-      </div>
-    </div>
-  </div>
-
   <!-- Cookie Banner -->
   <div class="cookie-banner" id="cookieBanner">
     <p>Utilizamos cookies para mejorar tu experiencia.</p>
@@ -382,8 +421,8 @@
     </div>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/particles.js/2.0.0/particles.min.js"></script>
-  <script src="ascii-video.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/particles.js@2.0.0/particles.js"></script>
+  <script type="module" src="immersive.js"></script>
   <script src="script.js"></script>
 </body>
 </html>

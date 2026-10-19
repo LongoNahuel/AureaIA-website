@@ -346,7 +346,19 @@ function crearLienzo(ancho, alto, escala = 2) {
 }
 
 // ---------- Escena ----------
+// Si algo falla al armar la escena (navegador, GPU o extensión no soportada), se
+// quita el canvas y el sitio sigue con las partículas 2D de particles.js.
 function iniciar() {
+  try {
+    return iniciarEscena();
+  } catch (e) {
+    console.warn('AureaIA: no se pudo iniciar el fondo 3D; se usan las partículas 2D.', e);
+    document.querySelectorAll('canvas.immersive-canvas, .vms-row').forEach(el => el.remove());
+    return false;
+  }
+}
+
+function iniciarEscena() {
   let renderer;
   try {
     // en escritorio el antialias lo hace el compositor (MSAA ×4); en celulares, el canvas
@@ -371,18 +383,73 @@ function iniciar() {
   const ajustarFov = () => { camera.fov = camera.aspect < 1 ? 70 : 55; camera.updateProjectionMatrix(); };
   ajustarFov();
 
+  // ---------- Compositor (bloom), con niveles para que funcione en cualquier navegador ----------
+  //   nivel 0: bloom + MSAA ×4    nivel 1: bloom sin MSAA    nivel 2: sin bloom (render directo)
+  //   nivel 3: se desactiva el 3D y quedan las partículas 2D
+  // Firefox y algunas GPU no aceptan MSAA sobre buffers de media precisión, o no tienen esos
+  // buffers: se consulta qué soporta el navegador y, además, se verifica que la imagen no salga negra.
+  const soporte = (() => {
+    const gl = renderer.getContext(), ext = renderer.extensions, w2 = renderer.capabilities.isWebGL2;
+    const flotante = w2 ? ext.has('EXT_color_buffer_float') || ext.has('EXT_color_buffer_half_float')
+                        : ext.has('OES_texture_half_float') && ext.has('EXT_color_buffer_half_float');
+    let muestras = 0;
+    // MSAA solo en pantallas de densidad 1–1,5 y hasta ~2,4 MP: a 2× las líneas ya salen finas
+    const px = window.innerWidth * window.innerHeight * PR_MAX * PR_MAX;
+    if (w2 && flotante && PR_MAX < 1.75 && px <= 2.4e6) {
+      try {
+        const lista = gl.getInternalformatParameter(gl.RENDERBUFFER, gl.RGBA16F, gl.SAMPLES);
+        muestras = Array.from(lista || []).find(n => n <= 4) || 0;
+      } catch (_) { muestras = 0; }
+    }
+    return { flotante, muestras };
+  })();
   let composer = null;
-  if (!compacto) {
-    // MSAA ×4 en pantallas de densidad 1–1,5; a 2× las líneas ya salen finas y el MSAA costaría demasiada memoria
-    const muestras = renderer.capabilities.isWebGL2 && PR_MAX < 1.75 ? 4 : 0;
-    const rt = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: muestras });
-    composer = new EffectComposer(renderer, rt);
-    composer.setPixelRatio(pr);
-    composer.setSize(window.innerWidth, window.innerHeight);
-    composer.addPass(new RenderPass(scene, camera));
-    composer.addPass(new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.5, 0.45, 0.34));
-    composer.addPass(new OutputPass());
+  let nivel = compacto || !soporte.flotante ? 2 : 0;
+
+  function crearComposer(muestras) {
+    const w = window.innerWidth, h = window.innerHeight;
+    const rt = new THREE.WebGLRenderTarget(w * pr, h * pr, { type: THREE.HalfFloatType, samples: muestras });
+    const c = new EffectComposer(renderer, rt);
+    c.setPixelRatio(pr);
+    c.setSize(w, h);
+    c.addPass(new RenderPass(scene, camera));
+    c.addPass(new UnrealBloomPass(new THREE.Vector2(w, h), 0.5, 0.45, 0.34));
+    c.addPass(new OutputPass());
+    return c;
   }
+  function composerCompleto(c) {
+    const gl = renderer.getContext();
+    try {
+      for (const rt of [c.renderTarget1, c.renderTarget2]) {
+        renderer.setRenderTarget(rt);
+        renderer.clear();
+        if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) return false;
+      }
+      return true;
+    } catch (_) {
+      return false;
+    } finally {
+      renderer.setRenderTarget(null);
+    }
+  }
+  function soltarComposer() {
+    if (!composer) return;
+    composer.passes.forEach(p => p.dispose && p.dispose());
+    composer.dispose();
+    composer = null;
+  }
+  function armarComposer() {
+    soltarComposer();
+    if (nivel === 1 && !soporte.muestras) nivel = 2;   // sin MSAA el nivel 1 es igual al 0
+    if (nivel >= 2) return;
+    const c = crearComposer(nivel === 0 ? soporte.muestras : 0);
+    if (composerCompleto(c)) { composer = c; return; }
+    c.passes.forEach(p => p.dispose && p.dispose());
+    c.dispose();
+    nivel++;
+    armarComposer();
+  }
+  armarComposer();
 
   // ---------- Modelo real ----------
   const datos = crearDatos();
@@ -786,8 +853,63 @@ function iniciar() {
   let actualizado = false, acumPasos = 0, cicloT = 0, latT = 0, latListo = false;
   let ultimoPaso = null, ultimoLote = [7];
 
+  // ---------- Vigía: si la imagen sale negra se baja un nivel; si nada funciona, partículas 2D ----------
+  let activo = true, fallos = 0, perdidoT = 0;
+  const vigia = { cuadro: 0, buenas: 0, negras: 0, listo: false };
+  const muestraPx = new Uint8Array(4);
+  function imagenNegra() { // el fondo correcto es #0A0A0A: si los puntos leídos son 0, no se está dibujando nada
+    const gl = renderer.getContext();
+    renderer.setRenderTarget(null);
+    const w = gl.drawingBufferWidth, h = gl.drawingBufferHeight;
+    for (const [fx, fy] of [[0.5, 0.5], [0.2, 0.25], [0.8, 0.75], [0.3, 0.8], [0.75, 0.3]]) {
+      gl.readPixels(Math.floor(w * fx), Math.floor(h * fy), 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, muestraPx);
+      if (muestraPx[0] > 3 || muestraPx[1] > 3 || muestraPx[2] > 3) return false;
+    }
+    return true;
+  }
+  function vigilar() {
+    vigia.cuadro++;
+    if (vigia.cuadro < 3 || vigia.cuadro % 3) return;
+    if (!imagenNegra()) {
+      vigia.negras = 0;
+      if (++vigia.buenas >= 3) vigia.listo = true;
+      return;
+    }
+    vigia.buenas = 0;
+    if (++vigia.negras < 2) return;
+    vigia.negras = 0; vigia.cuadro = 0;
+    nivel++;
+    if (nivel >= 3) desactivar('la imagen salía negra');
+    else { armarComposer(); if (window.AureaImmersive) window.AureaImmersive.nivel = nivel; }
+  }
+  function desactivar(motivo) {
+    if (!activo) return;
+    activo = false;
+    console.warn(`AureaIA: fondo 3D desactivado (${motivo}); se usan las partículas 2D.`);
+    try { soltarComposer(); renderer.dispose(); } catch (_) { /* nada */ }
+    canvas.remove();
+    document.querySelector('.vms-row')?.remove();
+    document.documentElement.classList.remove('immersive');
+    window.AureaImmersive = undefined;
+    // si la página ya cargó, se arrancan acá; si no, script.js las inicia en "load"
+    if (document.readyState === 'complete' && typeof window.initParticles === 'function' && typeof window.particlesJS !== 'undefined') window.initParticles();
+  }
+  canvas.addEventListener('webglcontextlost', () => { perdidoT = setTimeout(() => desactivar('se perdió el contexto WebGL'), 4000); });
+  canvas.addEventListener('webglcontextrestored', () => clearTimeout(perdidoT));
+
   function frame(now) {
+    if (!activo) return;
     requestAnimationFrame(frame);
+    try {
+      cuadro(now);
+      fallos = 0;
+    } catch (e) {
+      console.error(e);
+      if (++fallos > 5) desactivar('error al dibujar: ' + e.message);
+    }
+  }
+
+  function cuadro(now) {
     const ms = now - tPrev;
     const dt = Math.min(0.05, (now - tPrev) / 1000);
     const dtr = Math.min(0.25, (now - tPrev) / 1000);
@@ -935,6 +1057,7 @@ function iniciar() {
     camera.rotateZ(clamp((rutaCam.getPoint(Math.min(1, u + 0.01)).x - pos.x) * 0.01, -0.05, 0.05));
 
     if (composer) composer.render(); else renderer.render(scene, camera);
+    if (!vigia.listo) vigilar();
     if (!reduceMotion) medirCalidad(ms);
 
     // ---- telemetría ----
@@ -945,6 +1068,8 @@ function iniciar() {
     }
   }
 
+  // estado visible desde la consola: AureaImmersive.nivel (0 bloom+MSAA, 1 bloom, 2 sin bloom) y la resolución
+  window.AureaImmersive = { activo: true, resolucion: pr, nivel };
   requestAnimationFrame(frame);
   return true;
 }
@@ -1067,7 +1192,6 @@ function iniciarCursor() {
 // ---------- Arranque ----------
 const saveData = navigator.connection && navigator.connection.saveData;
 if (!saveData && iniciar()) {
-  window.AureaImmersive = { activo: true, resolucion: PR_MAX };
   document.documentElement.classList.add('immersive');
   iniciarCursor();
 }

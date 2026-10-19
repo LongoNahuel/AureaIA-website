@@ -921,18 +921,6 @@ textarea { resize: vertical; }
   pointer-events: none;
 }
 
-/* Etiquetas del recorrido: 01 Datos → 04 Decisión */
-.stage-eyebrow {
-  display: inline-block;
-  margin-bottom: 0.9rem;
-  font-family: 'IBM Plex Mono', Consolas, Monaco, monospace;
-  font-size: 0.68rem;
-  font-weight: 500;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--primary-light);
-}
-
 /* Vidrio: el contenido deja ver la escena detrás */
 .immersive .code-window {
   background: rgba(16, 16, 16, 0.5);
@@ -953,100 +941,6 @@ textarea { resize: vertical; }
   background: rgba(17, 17, 17, 0.72);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-}
-
-/* Telemetría estilo VMS: franja debajo del menú */
-.vms-row { margin-top: 0.7rem; }
-
-.vms-strip {
-  display: flex;
-  align-items: center;
-  width: 100%;
-  min-height: 30px;
-  padding: 0.3rem 0.5rem;
-  border: 1px solid rgba(0, 204, 255, 0.16);
-  border-radius: 6px;
-  background: rgba(10, 10, 10, 0.6);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  font-family: 'IBM Plex Mono', Consolas, Monaco, monospace;
-  font-size: 0.66rem;
-  letter-spacing: 0.04em;
-  color: var(--text-muted);
-  white-space: nowrap;
-  overflow: hidden;
-  font-variant-numeric: tabular-nums;
-}
-
-.vms-strip > span {
-  padding: 0 0.8rem;
-  border-left: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.vms-strip > span:first-child { border-left: 0; }
-
-.vms-live {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  color: var(--text);
-}
-
-.vms-live i {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--primary-light);
-  box-shadow: 0 0 8px var(--primary-light);
-  animation: vms-pulso 1.6s ease-in-out infinite;
-}
-
-@keyframes vms-pulso {
-  50% { opacity: 0.35; }
-}
-
-.vms-stage {
-  color: var(--primary-light);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  min-width: 17ch;
-}
-
-.vms-layer { color: var(--text); min-width: 30ch; }
-.vms-shape { min-width: 32ch; }
-
-.vms-spark {
-  width: 60px;
-  height: 14px;
-  margin-right: 0.8rem;
-}
-
-.vms-spark[hidden] { display: none; }
-
-.vms-steps {
-  display: inline-flex;
-  gap: 2px;
-  margin-left: auto;
-  padding-left: 0.8rem;
-}
-
-.vms-steps b {
-  width: 4px;
-  height: 10px;
-  border-radius: 1px;
-  background: rgba(255, 255, 255, 0.1);
-  transition: background 0.25s ease;
-}
-
-.vms-steps b.on { background: var(--primary-light); }
-
-@media (max-width: 900px) {
-  .vms-shape, .vms-spark { display: none; }
-  .vms-layer { min-width: 0; }
-}
-
-@media (max-width: 600px) {
-  .vms-row { display: none; }
 }
 
 /* Cursor */
@@ -1178,27 +1072,6 @@ textarea { resize: vertical; }
 .section-header p {
   font-size: 1rem;
   max-width: 46ch;
-}
-
-/* Marca de etapa: número y nombre, en minúsculas de oración */
-.stage-eyebrow {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 0.65rem;
-  margin-bottom: 1.1rem;
-  font-family: 'Inter', -apple-system, sans-serif;
-  font-size: 0.85rem;
-  font-weight: 500;
-  letter-spacing: 0;
-  text-transform: none;
-  color: var(--text-muted);
-}
-
-.stage-eyebrow b {
-  font-family: 'IBM Plex Mono', Consolas, Monaco, monospace;
-  font-size: 0.75rem;
-  font-weight: 500;
-  color: var(--primary-light);
 }
 
 /* --- Inicio --- */
@@ -1497,97 +1370,157 @@ textarea { resize: vertical; }
 }
 
 /* ==========================================================================
-   TRANSPARENCIAS — los paneles dejan ver el fondo inmersivo
-   Fondos al 25–45 % y desenfoque leve; el texto gana una sombra suave para
-   seguir leyéndose sobre las zonas brillantes de la escena.
+   LECTURA PRIMERO — el fondo acompaña, el texto manda
+   El fondo 3D se ve entero en el inicio, al costado del título. Donde hay
+   texto para leer, immersive.js sube un velo oscuro (.immersive-velo) y los
+   paneles usan vidrio esmerilado: se intuye el movimiento sin que distraiga.
    ========================================================================== */
+.immersive-velo {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: var(--bg);
+  opacity: 0;
+  pointer-events: none;
+}
+
 .immersive .hero-text h1,
 .immersive .hero-sub,
 .immersive .section-header h2,
 .immersive .section-header p,
-.immersive .service-card h3,
-.immersive .service-card p,
-.immersive .portfolio-info h3,
-.immersive .portfolio-info p,
-.immersive .caso-puntos li,
 .immersive .contact-info > p,
 .immersive .stat-num,
 .immersive .stat-label {
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8), 0 0 18px rgba(10, 10, 10, 0.9);
 }
 
+/* el texto con degradé usa relleno transparente: la sombra lo oscurecería */
+.immersive .gradient-text { text-shadow: none; }
+
+/* Inicio: sombra suave del lado del texto; la escena queda limpia a la derecha */
+.immersive .hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: linear-gradient(90deg, rgba(10, 10, 10, 0.86) 0%, rgba(10, 10, 10, 0.62) 34%, rgba(10, 10, 10, 0) 62%);
+}
+
+.immersive .hero > .container { position: relative; z-index: 1; }
+
+/* Títulos de sección: un halo oscuro detrás, sin caja */
+.immersive .section-header { position: relative; isolation: isolate; }
+
+.immersive .section-header::before {
+  content: '';
+  position: absolute;
+  inset: -2rem -3rem;
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(closest-side, rgba(10, 10, 10, 0.75), rgba(10, 10, 10, 0));
+}
+
+/* Vidrio esmerilado parejo en todos los paneles */
 .immersive .navbar.scrolled {
-  background: rgba(10, 10, 10, 0.5);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  background: rgba(10, 10, 10, 0.72);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
 
-.immersive .vms-strip {
-  background: rgba(10, 10, 10, 0.3);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
-}
-
-.immersive .code-window {
-  background: rgba(16, 16, 16, 0.3);
-  backdrop-filter: blur(3px);
-  -webkit-backdrop-filter: blur(3px);
+.immersive .code-window,
+.immersive .services-grid,
+.immersive .portfolio-card,
+.immersive .contact-form {
+  background: rgba(12, 14, 18, 0.72);
+  border-color: rgba(255, 255, 255, 0.09);
+  backdrop-filter: blur(14px) saturate(115%);
+  -webkit-backdrop-filter: blur(14px) saturate(115%);
   box-shadow: none;
 }
 
-.immersive .code-header { background: rgba(24, 24, 24, 0.45); }
+.immersive .code-header { background: rgba(24, 24, 24, 0.6); }
 
-.immersive .services-grid {
-  background: rgba(10, 10, 10, 0.28);
-  border-color: rgba(255, 255, 255, 0.09);
-  backdrop-filter: blur(3px);
-  -webkit-backdrop-filter: blur(3px);
-}
-
-.immersive .service-card:hover { background: rgba(0, 102, 255, 0.08); }
-
-/* tarjetas con más texto: algo más de fondo para que se lean sobre las zonas brillantes */
-.immersive .portfolio-card {
-  background: rgba(14, 14, 14, 0.48);
-  border-color: rgba(255, 255, 255, 0.09);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-}
+.immersive .service-card { background: transparent; }
+.immersive .service-card:hover { background: rgba(0, 102, 255, 0.07); }
 
 .immersive .portfolio-tag,
 .immersive .badge { background: rgba(0, 102, 255, 0.14); }
 
-.immersive .portfolio-media { background-color: rgba(7, 9, 13, 0.5); }
+.immersive .portfolio-media { background-color: rgba(7, 9, 13, 0.6); }
 
 .immersive .caso-tech li { background: rgba(10, 10, 10, 0.45); }
 
-.immersive .contact-form {
-  background: rgba(17, 17, 17, 0.28);
-  backdrop-filter: blur(3px);
-  -webkit-backdrop-filter: blur(3px);
-}
-
 .immersive .form-group input,
 .immersive .form-group textarea {
-  background: rgba(10, 10, 10, 0.4);
+  background: rgba(10, 10, 10, 0.55);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
 
 .immersive .form-group input:focus,
-.immersive .form-group textarea:focus { background: rgba(10, 10, 10, 0.6); }
+.immersive .form-group textarea:focus { background: rgba(10, 10, 10, 0.75); }
 
-.immersive .social-link { background: rgba(17, 17, 17, 0.4); }
+.immersive .social-link { background: rgba(17, 17, 17, 0.6); }
 
 .immersive .footer {
-  background: rgba(17, 17, 17, 0.45);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  background: rgba(14, 14, 14, 0.78);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
 
 .immersive .services-section,
 .immersive .portfolio-section,
 .immersive .contact-section { border-top-color: rgba(255, 255, 255, 0.05); }
 
-/* el texto con degradé usa relleno transparente: la sombra lo oscurecería */
-.immersive .gradient-text { text-shadow: none; }
+/* Leyenda del fondo: una frase simple que aparece y se va sola */
+.fondo-leyenda {
+  position: fixed;
+  left: 1.25rem;
+  bottom: 1.25rem;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  max-width: min(420px, calc(100vw - 2.5rem));
+  padding: 0.55rem 0.9rem 0.55rem 0.75rem;
+  background: rgba(12, 14, 18, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  line-height: 1.4;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 0.6s ease, transform 0.6s ease;
+}
+
+.fondo-leyenda.visible { opacity: 1; transform: none; }
+
+.fondo-leyenda i {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--primary-light);
+  box-shadow: 0 0 0 4px rgba(0, 204, 255, 0.15);
+}
+
+/* el halo de los títulos no debe generar scroll horizontal */
+.immersive .services-section,
+.immersive .portfolio-section { overflow-x: clip; }
+
+@media (max-width: 768px) {
+  .immersive .section-header::before { inset: -1.5rem -0.75rem; }
+  .immersive .hero::before {
+    background: linear-gradient(180deg, rgba(10, 10, 10, 0.4) 0%, rgba(10, 10, 10, 0.62) 55%, rgba(10, 10, 10, 0.78) 100%);
+  }
+  .fondo-leyenda { left: 1rem; bottom: 1rem; font-size: 0.74rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fondo-leyenda { transition: none; }
+}

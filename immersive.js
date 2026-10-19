@@ -22,8 +22,12 @@
 
    Pesos, activaciones, gradientes, pérdida y precisión son los de la red.
    Sin carteles ni etiquetas: fuera de la lluvia de código del inicio, todo
-   se lee por forma, color y movimiento (los números viven en la franja de
-   telemetría debajo del menú).
+   se lee por forma, color y movimiento. Una leyenda breve abajo a la izquierda
+   explica en palabras simples qué se ve, y se va sola.
+
+   Lectura primero: donde hay texto, un velo oscuro baja la intensidad de la
+   escena; el movimiento es lento y el brillo suave para no competir con el
+   contenido.
 
    Resolución: hasta 2× la densidad de píxeles de la pantalla (MSAA ×4 en el
    compositor cuando la pantalla es de densidad 1–1,5) y escala adaptativa:
@@ -51,6 +55,7 @@ const compacto = coarse || Math.min(window.innerWidth, window.innerHeight) < 700
 const Q = compacto ? { puntos: 14000, tam: 0.54, niebla: 0.0065 } : { puntos: 42000, tam: 0.47, niebla: 0.0055 };
 const PR_MAX = Math.min(window.devicePixelRatio || 1, 2);
 const PR_MIN = Math.min(PR_MAX, 1);
+const CICLO = 1.8;  // segundos que tarda un ejemplo en ir y volver por la red durante el entrenamiento
 const TESELA = 40; // px de cada dígito en el atlas del panel (los datos de la red siguen en 14×14)
 
 // Lluvia de código del inicio: fórmulas reales de backpropagation y Adam, y columnas de binario/hex
@@ -60,7 +65,7 @@ const FORMULAS = [
   'θ←θ−η·m/(√v+ε)', 'η=0.003', "ReLU'(z)=[z>0]",
 ];
 const HEXA = '0123456789ABCDEF';
-const LLUVIA = compacto ? { columnas: 90, tam: 1.1 } : { columnas: 150, tam: 0.95 };
+const LLUVIA = compacto ? { columnas: 64, tam: 1.1 } : { columnas: 110, tam: 0.95 };
 
 const FONDO = 0x0a0a0a;
 const CIAN = new THREE.Color(0x00ccff);
@@ -86,7 +91,6 @@ const lerp = (a, b, t) => a + (b - a) * t;
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
-const num = (v, d = 2) => v.toLocaleString('es-AR', { minimumFractionDigits: d, maximumFractionDigits: d });
 const argmax = a => { let m = 0; for (let i = 1; i < a.length; i++) if (a[i] > a[m]) m = i; return m; };
 const maxAbs = a => { let m = 1e-9; for (const v of a) m = Math.max(m, Math.abs(v)); return m; };
 
@@ -303,8 +307,8 @@ void main() {
   float v = texture2D(uAtlas, (vTile + gl_PointCoord) / uGrilla).r;
   if (v < 0.02) discard;
   vec3 base = mix(vec3(0.0, 0.62, 1.0), vec3(0.62, 0.5, 1.0), vTipo); // código cian, fórmulas violeta
-  vec3 c = mix(base, vec3(0.9, 0.97, 1.0), vPunta * 0.85);
-  float fondo = mix(0.05, 0.15, vTipo);                               // las fórmulas quedan legibles
+  vec3 c = mix(base, vec3(0.9, 0.97, 1.0), vPunta * 0.5);
+  float fondo = mix(0.04, 0.12, vTipo);                               // las fórmulas quedan legibles
   gl_FragColor = vec4(c, v * vAlpha * (fondo + (1.0 - fondo) * max(vLuz, vPunta)));
 }`;
 
@@ -353,7 +357,7 @@ function iniciar() {
     return iniciarEscena();
   } catch (e) {
     console.warn('AureaIA: no se pudo iniciar el fondo 3D; se usan las partículas 2D.', e);
-    document.querySelectorAll('canvas.immersive-canvas, .vms-row').forEach(el => el.remove());
+    document.querySelectorAll('canvas.immersive-canvas, .immersive-velo, .fondo-leyenda').forEach(el => el.remove());
     return false;
   }
 }
@@ -375,6 +379,11 @@ function iniciarEscena() {
   canvas.className = 'immersive-canvas';
   canvas.setAttribute('aria-hidden', 'true');
   document.body.prepend(canvas);
+  // velo entre la escena y el contenido: oscurece el fondo donde hay texto
+  const velo = document.createElement('div');
+  velo.className = 'immersive-velo';
+  velo.setAttribute('aria-hidden', 'true');
+  canvas.after(velo);
 
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(FONDO); // pasa bien por el espacio de color del compositor
@@ -413,7 +422,7 @@ function iniciarEscena() {
     c.setPixelRatio(pr);
     c.setSize(w, h);
     c.addPass(new RenderPass(scene, camera));
-    c.addPass(new UnrealBloomPass(new THREE.Vector2(w, h), 0.5, 0.45, 0.34));
+    c.addPass(new UnrealBloomPass(new THREE.Vector2(w, h), 0.35, 0.4, 0.38)); // brillo suave
     c.addPass(new OutputPass());
     return c;
   }
@@ -518,7 +527,7 @@ function iniciarEscena() {
     const chars = Array.from(texto);
     // columnas alrededor del acercamiento de la cámara, cargadas hacia la derecha para no tapar el título
     const x = clamp(14 + gauss() * 12, -10, 40), z = 42 + rand() * 60, y0 = 4 + rand() * 16;
-    const vel = formula ? 3 + rand() * 3 : 6 + rand() * 8;
+    const vel = formula ? 2 + rand() * 2 : 3.5 + rand() * 4.5; // caída lenta, para no distraer
     const estelaLargo = formula ? 8 + rand() * 6 : 4 + rand() * 5;
     const ciclo = chars.length + estelaLargo * 3 + rand() * chars.length;
     const col = [vel, rand() * ciclo, estelaLargo, ciclo];
@@ -847,11 +856,11 @@ function iniciarEscena() {
   if (document.readyState === 'complete') empezarIntro();
   else window.addEventListener('load', empezarIntro);
 
-  const telemetria = crearTelemetria();
+  const leyenda = crearLeyenda();
   const pos = V(0, 0, 0), mira = V(0, 0, 0);
   let sCur = etapaScroll(), tPrev = performance.now(), tiempo = 0, hudT = 0;
   let actualizado = false, acumPasos = 0, cicloT = 0, latT = 0, latListo = false;
-  let ultimoPaso = null, ultimoLote = [7];
+  let ultimoLote = [7];
 
   // ---------- Vigía: si la imagen sale negra se baja un nivel; si nada funciona, partículas 2D ----------
   let activo = true, fallos = 0, perdidoT = 0;
@@ -888,7 +897,8 @@ function iniciarEscena() {
     console.warn(`AureaIA: fondo 3D desactivado (${motivo}); se usan las partículas 2D.`);
     try { soltarComposer(); renderer.dispose(); } catch (_) { /* nada */ }
     canvas.remove();
-    document.querySelector('.vms-row')?.remove();
+    velo.remove();
+    document.querySelector('.fondo-leyenda')?.remove();
     document.documentElement.classList.remove('immersive');
     window.AureaImmersive = undefined;
     // si la página ya cargó, se arrancan acá; si no, script.js las inicia en "load"
@@ -934,7 +944,6 @@ function iniciarEscena() {
     if (s > 2.98 && !actualizado && estado) {
       red.aplicar(estado.G, 1, 0.003);
       actualizado = true; sucio = true;
-      ultimoPaso = 'actualizacion';
     }
     if (s < 2.6) actualizado = false;
 
@@ -949,7 +958,7 @@ function iniciarEscena() {
         ultimoLote = r.indices;
       }
       cicloT += dtr;
-      if (cicloT > 0.9) { // un ejemplo del lote recorre la red: adelante y atrás
+      if (cicloT > CICLO) { // un ejemplo del lote recorre la red: adelante y atrás, sin apuro
         cicloT = 0;
         ej = ultimoLote[0];
         sucio = true;
@@ -960,7 +969,7 @@ function iniciarEscena() {
         }
         if (recientes.length > 16) recientes.splice(0, recientes.length - 16);
       }
-      const c = cicloT / 0.9;
+      const c = cicloT / CICLO;
       if (c < 0.5) { waveF = lerp(Z.in + 3, Z.out - 4, c * 2); uBack = 0; waveB = Z.out - 4; }
       else { waveF = Z.out - 4; uBack = 1; waveB = lerp(Z.out - 4, Z.in + 3, (c - 0.5) * 2); }
       latT += dtr;
@@ -983,7 +992,7 @@ function iniciarEscena() {
     uCerebro.uWaveZ.value = uBack ? waveB * ESC_CEREBRO * 0.6 : waveF * ESC_CEREBRO * 0.6;
     uCerebro.uWaveColor.value.copy(uBack ? VIOLETA : CIAN);
     uCerebro.uTime.value = tiempo;
-    uLluvia.uOpacity.value = ease * (1 - smooth(1.2, 1.5, s) * (1 - 0.6 * smooth(3.1, 3.5, s)));
+    uLluvia.uOpacity.value = ease * (1 - smooth(1.2, 1.5, s)); // la lluvia es solo del inicio
     const conv = smooth(1.05, 1.2, s) * (1 - smooth(1.55, 1.7, s));
     kernelMat.opacity = conv;
     barras.material.opacity = smooth(1.85, 2.05, s) * (1 - smooth(2.3, 2.45, s)) + smooth(3.2, 3.5, s) * 0.55;
@@ -998,7 +1007,7 @@ function iniciarEscena() {
     uLluvia.uTime.value = tiempo;
     uLluvia.uEscala.value = window.innerHeight / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)));
     parpadeoT += dt;
-    if (!reduceMotion && parpadeoT > 0.07 && uLluvia.uOpacity.value > 0.01) { parpadeoT = 0; parpadear(); }
+    if (!reduceMotion && parpadeoT > 0.14 && uLluvia.uOpacity.value > 0.01) { parpadeoT = 0; parpadear(); }
     // estela: de la lluvia a la capa de entrada
     const ep = estelaGeo.attributes.position.array;
     const desde = ORIGEN_FLUJO, hasta = V(0, 0, Z.in);
@@ -1049,22 +1058,24 @@ function iniciarEscena() {
     const corre = lerp(PARADAS[ti].corre, PARADAS[ti + 1].corre, tf);
     if (angosto) pos.addScaledVector(pos.clone().sub(mira).normalize(), corre * 0.8);
     else mira.addScaledVector(derecha, -corre);
-    pos.x -= mouseS.x * 1.6; pos.y += mouseS.y * 1.1;
+    pos.x -= mouseS.x * 0.8; pos.y += mouseS.y * 0.5;
     pos.z += (1 - ease) * 60;
     camera.position.copy(pos);
-    camera.lookAt(mira.x - mouseS.x * 1.2, mira.y + mouseS.y * 0.8, mira.z);
-    // leve alabeo en las curvas del recorrido
-    camera.rotateZ(clamp((rutaCam.getPoint(Math.min(1, u + 0.01)).x - pos.x) * 0.01, -0.05, 0.05));
+    camera.lookAt(mira.x - mouseS.x * 0.6, mira.y + mouseS.y * 0.4, mira.z);
 
     if (composer) composer.render(); else renderer.render(scene, camera);
     if (!vigia.listo) vigilar();
     if (!reduceMotion) medirCalidad(ms);
 
-    // ---- telemetría ----
+    // ---- leyenda y velo de lectura ----
     hudT += dt;
-    if (hudT > 0.1 && estado) {
+    if (hudT > 0.1) {
       hudT = 0;
-      telemetria.actualizar({ s, waveF, waveB, uBack, entrena, estado, ej, metrica, historial, epoca: entrenador.epoca, ultimoPaso, red });
+      leyenda.actualizar(s, now, metrica.acc, ease > 0.6);
+      // donde hay texto para leer, un velo oscuro baja la intensidad del fondo
+      const lectura = smooth(0.55, 0.95, s) * (angosto ? 0.6 : 0.52) + (angosto ? 0.12 * (1 - smooth(0.55, 0.95, s)) : 0);
+      const op = lectura.toFixed(3);
+      if (velo.style.opacity !== op) velo.style.opacity = op;
     }
   }
 
@@ -1074,76 +1085,35 @@ function iniciarEscena() {
   return true;
 }
 
-// ---------- Telemetría en una franja debajo del menú ----------
-function crearTelemetria() {
-  const fila = document.createElement('div');
-  fila.className = 'vms-row';
-  fila.innerHTML = '<div class="container"></div>';
-  document.getElementById('navbar')?.append(fila);
-  const barra = document.createElement('div');
-  barra.className = 'vms-strip';
-  barra.setAttribute('aria-label', 'Estado del entrenamiento de la red del fondo');
-  barra.innerHTML = `
-    <span class="vms-live"><i></i>Red</span>
-    <span class="vms-stage"></span>
-    <span class="vms-layer"></span>
-    <span class="vms-shape"></span>
-    <canvas class="vms-spark" width="120" height="28" hidden></canvas>
-    <span class="vms-steps" aria-hidden="true">${'<b></b>'.repeat(12)}</span>`;
-  fila.firstElementChild.append(barra);
-  const $ = q => barra.querySelector(q);
-  const spark = $('.vms-spark'), sg = spark.getContext('2d');
-  const pasos = barra.querySelectorAll('.vms-steps b');
-  const set = (q, t) => { const el = $(q); if (el.textContent !== t) el.textContent = t; };
-  const capaEn = z => (z > (Z.in + Z.conv) / 2 ? 'in' : z > (Z.conv + Z.pool) / 2 ? 'conv' : z > (Z.pool + Z.h1) / 2 ? 'pool' : z > (Z.h1 + Z.h2) / 2 ? 'h1' : z > (Z.h2 + Z.out) / 2 ? 'h2' : 'out');
-
+// ---------- Leyenda: qué se ve de fondo, en palabras simples ----------
+// Aparece al entrar y cada vez que cambia la etapa, y se va sola a los pocos segundos.
+const LEYENDAS = [
+  'De fondo, una red neuronal real se entrena en tu navegador',
+  'La red lee un dígito escrito a mano, capa por capa',
+  'Compara su respuesta con la correcta y ajusta sus conexiones',
+  'Aprende con cada ejemplo',
+];
+function crearLeyenda() {
+  const el = document.createElement('div');
+  el.className = 'fondo-leyenda';
+  el.setAttribute('aria-hidden', 'true');
+  el.innerHTML = '<i></i><span></span>';
+  document.body.append(el);
+  const texto = el.querySelector('span');
+  let etapa = -1, candidata = -1, desde = 0, visibleHasta = 0;
   return {
-    actualizar(d) {
-      const e = clamp(Math.floor(d.s), 0, 3);
-      set('.vms-stage', `${String(e + 1).padStart(2, '0')} ${ETAPAS[e].nombre}`);
-      const { f, b, y, pred } = d.estado;
-      let capa = '', forma = '';
-      if (d.entrena) {
-        capa = `época ${num(d.epoca, 1)} · pérdida ${num(d.metrica.loss, 3)} · precisión ${Math.round(d.metrica.acc * 100)}%`;
-        const nPesos = Object.values(d.red.P).reduce((a, p) => a + p.length, 0);
-        forma = d.uBack ? `backprop del lote → Adam actualiza ${nPesos.toLocaleString('es-AR')} pesos` : `ejemplo: dígito ${y} → predicción ${pred} (${num(f.p[pred])})`;
-      } else if (d.s < 1) {
-        capa = '500 ejemplos · 10 dígitos · 14×14 píxeles';
-        forma = `entra el ejemplo #${d.ej}: un ${y}`;
-      } else if (d.s < 2.3) {
-        const c = capaEn(d.waveF + 2);
-        const info = {
-          in: ['entrada', `196 valores entre 0 y 1`],
-          conv: ['convolución 3×3', `filtro 1 · Σk·x+b = ${num(f.c[60])} → ReLU ${num(Math.max(0, f.c[60]))}`],
-          pool: ['max pooling 2×2', `máximo de 4 vecinos = ${num(f.a0[14])}`],
-          h1: ['densa 32', `h1₁: Σw·x+b = ${num(f.z1[0])} → ReLU ${num(f.a1[0])}`],
-          h2: ['densa 16', `h2₁: Σw·x+b = ${num(f.z2[0])} → ReLU ${num(f.a2[0])}`],
-          out: ['softmax', `P(${y}) = ${num(f.p[y])} · predicción ${pred} (${num(f.p[pred])})`],
-        }[c];
-        capa = `forward · ${info[0]}`; forma = info[1];
-      } else if (d.s < 2.45) {
-        capa = `pérdida = −log P(${y}) = ${num(b.loss)}`;
-        forma = `∂L/∂z = p − y · ‖δ salida‖ ${num(Math.hypot(...b.d3), 3)}`;
-      } else {
-        const c = capaEn(d.waveB - 2);
-        const g = { out: d.estado.G.W3, h2: d.estado.G.W3, h1: d.estado.G.W2, pool: d.estado.G.W1, conv: d.estado.G.K, in: d.estado.G.K }[c];
-        const nombre = { out: 'W₃', h2: 'W₃', h1: 'W₂', pool: 'W₁', conv: 'filtros', in: 'filtros' }[c];
-        capa = d.s > 2.95 ? 'actualización · w ← w − η·∂L/∂w' : `backpropagation · gradiente de ${nombre}`;
-        forma = `‖∂L/∂${nombre}‖ = ${num(Math.hypot(...g), 3)}`;
+    actualizar(s, now, precision, listo) {
+      const e = clamp(Math.floor(s + 0.15), 0, 3);
+      if (e !== candidata) { candidata = e; desde = now; }
+      // la etapa cuenta cuando el scroll se queda en ella un momento
+      if (listo && candidata !== etapa && now - desde > 600) {
+        etapa = candidata;
+        visibleHasta = now + 6500;
       }
-      set('.vms-layer', capa);
-      set('.vms-shape', forma);
-      const h = d.historial;
-      spark.hidden = !d.entrena || h.length < 2;
-      if (!spark.hidden) {
-        const v = h.slice(-60), max = Math.max(...v, 0.01);
-        sg.clearRect(0, 0, 120, 28);
-        sg.strokeStyle = '#00ccff'; sg.lineWidth = 2; sg.beginPath();
-        v.forEach((x, i) => { const px = i / Math.max(1, v.length - 1) * 118 + 1, py = 26 - (x / max) * 24; i ? sg.lineTo(px, py) : sg.moveTo(px, py); });
-        sg.stroke();
-      }
-      const lleno = Math.round(d.s / 4 * 12);
-      pasos.forEach((b, i) => b.classList.toggle('on', i < lleno));
+      if (etapa < 0) return;
+      const t = LEYENDAS[etapa] + (etapa === 3 ? ` · precisión ${Math.round(precision * 100)} %` : '');
+      if (texto.textContent !== t) texto.textContent = t;
+      el.classList.toggle('visible', now < visibleHasta);
     },
   };
 }

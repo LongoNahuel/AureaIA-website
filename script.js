@@ -525,3 +525,106 @@ document.addEventListener('DOMContentLoaded', () => {
   };
   if (relojes.length) { tic(); setInterval(tic, 1000); }
 })();
+
+// Caso ChatBot: conversación de demostración en loop (se anima solo cuando está en pantalla)
+(function initChatDemo() {
+  const demo = document.querySelector('.chat-demo');
+  if (!demo) return;
+  const track = demo.querySelector('.chat-track');
+  const kpiN = demo.querySelector('[data-kpi="n"]');
+  const kpiT = demo.querySelector('[data-kpi="t"]');
+  const guion = [
+    { u: '¿Cómo actualizo el firmware de mi cámara desde la app?' },
+    { b: 'Te guío paso a paso:<ol><li>Entrá a <b>Dispositivos</b> y elegí la cámara.</li><li>Tocá <b>Actualizar firmware</b> y confirmá.</li><li>No la desconectes durante unos 5 min.</li></ol>' },
+    { u: 'Listo, ¿cómo verifico que quedó bien?' },
+    { b: 'Revisá la versión en <b>Información del equipo</b>: tiene que coincidir con la última publicada. <span class="chat-ok">✓ Si la imagen vuelve sola, quedó OK.</span>' },
+    { u: 'El NVR me muestra el error "Disco no formateado"' },
+    { b: 'Es normal con un disco nuevo. Andá a <b>Almacenamiento → Discos</b>, seleccionalo y tocá <b>Formatear</b>. ⚠ Se borran las grabaciones de ese disco.' },
+  ];
+  const dos = n => String(n).padStart(2, '0');
+  const hora = () => { const d = new Date(); return `${dos(d.getHours())}:${dos(d.getMinutes())}`; };
+  let i = 0, consultas = 0, timer = null, activo = false;
+  const reducido = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  function agregar(html, cls) {
+    const el = document.createElement('div');
+    el.className = `chat-msg ${cls}`;
+    el.innerHTML = html;
+    track.appendChild(el);
+    while (track.children.length > 6) track.firstElementChild.remove();
+    return el;
+  }
+  function paso() {
+    if (!activo) return;
+    if (i >= guion.length) { // reinicia la conversación
+      i = 0;
+      timer = setTimeout(() => { track.innerHTML = ''; paso(); }, 2600);
+      return;
+    }
+    const m = guion[i++];
+    if (m.u) {
+      agregar(`${m.u}<time>${hora()}</time>`, 'user');
+      consultas++; if (kpiN) kpiN.textContent = consultas;
+      timer = setTimeout(paso, 900);
+    } else {
+      const t = agregar('<span class="chat-typing"><i></i><i></i><i></i></span>', 'bot');
+      const espera = 1100 + Math.random() * 900;
+      timer = setTimeout(() => {
+        t.innerHTML = `${m.b}<time>${hora()}</time>`;
+        if (kpiT) kpiT.textContent = `${(espera / 1000).toFixed(1)} s`;
+        timer = setTimeout(paso, 2600);
+      }, espera);
+    }
+  }
+  if (reducido) { guion.slice(0, 2).forEach(m => agregar(m.u || m.b, m.u ? 'user' : 'bot')); return; }
+  const io = new IntersectionObserver(es => es.forEach(e => {
+    if (e.isIntersecting && !activo) { activo = true; paso(); }
+    else if (!e.isIntersecting && activo) { activo = false; clearTimeout(timer); }
+  }), { threshold: 0.3 });
+  io.observe(demo);
+})();
+
+// Analítica de Robo: eventos reales del sistema sincronizados con el video
+(function initCamEvents() {
+  document.querySelectorAll('.cam-events').forEach(panel => {
+    const fig = panel.closest('.cam-feed');
+    const video = fig && fig.querySelector('.cam-video');
+    const list = panel.querySelector('.cam-events-list');
+    const count = panel.querySelector('.cam-events-count');
+    const live = fig && fig.querySelector('[data-live-event]');
+    let eventos = [];
+    try { eventos = JSON.parse(panel.dataset.events); } catch (_) { return; }
+    if (!video || !list) return;
+    let mostrados = 0, alertas = 0;
+    const mmss = t => `${String(Math.floor(t / 60)).padStart(2, '0')}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
+    function reiniciar() {
+      list.innerHTML = ''; mostrados = 0; alertas = 0;
+      if (count) count.textContent = '0 alertas';
+      if (live) { live.textContent = 'Monitoreando zonas'; live.classList.remove('is-alert'); }
+      fig.classList.remove('is-alert');
+    }
+    video.addEventListener('timeupdate', () => {
+      const t = video.currentTime;
+      if (mostrados > 0 && t < eventos[mostrados - 1][0] - 0.5) reiniciar(); // volvió a empezar el loop
+      while (mostrados < eventos.length && eventos[mostrados][0] <= t) {
+        const [et, tipo, titulo, detalle] = eventos[mostrados++];
+        const li = document.createElement('li');
+        li.className = tipo;
+        li.innerHTML = `<time>${mmss(et)}</time><span><b>${titulo}</b><small>${detalle}</small></span>`;
+        list.appendChild(li);
+        while (list.children.length > 5) list.firstElementChild.remove();
+        if (live) {
+          live.textContent = tipo === 'alert' ? `⚠ ${titulo}` : `${titulo}: ${detalle.split(' · ')[0]}`;
+          live.classList.toggle('is-alert', tipo === 'alert');
+        }
+        if (tipo === 'alert') {
+          alertas++;
+          if (count) count.textContent = `${alertas} alerta${alertas > 1 ? 's' : ''}`;
+          fig.classList.add('is-alert');
+          setTimeout(() => fig.classList.remove('is-alert'), 2600);
+        }
+      }
+    });
+    video.addEventListener('seeked', () => { if (video.currentTime < 0.5) reiniciar(); });
+  });
+})();

@@ -1586,7 +1586,8 @@ textarea { resize: vertical; }
 }
 .cam-ia { color: #00CCFF; opacity: 0.9; white-space: nowrap; }
 /* esquinas tipo visor */
-.cam-feed::after {
+.cam-feed:not(.cam-feed-vms)::after,
+.cam-screen::after {
   content: '';
   position: absolute;
   inset: 8px;
@@ -1609,3 +1610,234 @@ textarea { resize: vertical; }
 @media (prefers-reduced-motion: reduce) {
   .cam-rec::before { animation: none; }
 }
+
+/* ==========================================================================
+   Caso ChatBot: demo de conversación animada
+   ========================================================================== */
+.chat-demo {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 132px;
+  gap: 12px;
+  padding: 12px;
+}
+.chat-win {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid rgba(232, 246, 255, 0.12);
+  border-radius: 10px;
+  background: rgba(10, 15, 24, 0.85);
+  overflow: hidden;
+}
+.chat-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-bottom: 1px solid rgba(232, 246, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+}
+.chat-avatar {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font: 600 9px/1 Inter, sans-serif;
+  color: #fff;
+  background: linear-gradient(135deg, #00CCFF, #0066FF);
+}
+.chat-id { display: flex; flex-direction: column; min-width: 0; line-height: 1.2; }
+.chat-id strong { font: 600 11.5px/1.2 Inter, sans-serif; color: #E8F6FF; }
+.chat-status { font: 400 10px/1.2 Inter, sans-serif; color: #3DDC97; }
+.chat-channel {
+  margin-left: auto;
+  font: 500 9.5px/1 'IBM Plex Mono', monospace;
+  color: #00CCFF;
+  border: 1px solid rgba(0, 204, 255, 0.4);
+  border-radius: 3px;
+  padding: 3px 5px;
+}
+.chat-body {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(transparent, #000 22%);
+  mask-image: linear-gradient(transparent, #000 22%);
+}
+.chat-track {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px 10px;
+}
+.chat-msg {
+  max-width: 84%;
+  padding: 6px 9px;
+  border-radius: 10px;
+  font: 400 11.5px/1.45 Inter, sans-serif;
+  color: #E8F6FF;
+  animation: chat-in 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.chat-msg.user {
+  align-self: flex-end;
+  background: #0066FF;
+  border-bottom-right-radius: 3px;
+}
+.chat-msg.bot {
+  align-self: flex-start;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(232, 246, 255, 0.08);
+  border-bottom-left-radius: 3px;
+}
+.chat-msg ol { margin: 3px 0 0; padding-left: 16px; }
+.chat-msg li { margin: 1px 0; }
+.chat-msg .chat-ok { color: #3DDC97; }
+.chat-msg time {
+  display: block;
+  margin-top: 2px;
+  text-align: right;
+  font-size: 9px;
+  opacity: 0.55;
+}
+.chat-typing { display: inline-flex; gap: 3px; padding: 9px 11px; }
+.chat-typing i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #00CCFF;
+  animation: chat-dot 1s infinite ease-in-out;
+}
+.chat-typing i:nth-child(2) { animation-delay: 0.15s; }
+.chat-typing i:nth-child(3) { animation-delay: 0.3s; }
+@keyframes chat-dot { 0%, 80%, 100% { opacity: 0.25; transform: translateY(0); } 40% { opacity: 1; transform: translateY(-2px); } }
+@keyframes chat-in { from { opacity: 0; transform: translateY(8px) scale(0.98); } to { opacity: 1; transform: none; } }
+.chat-side {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+}
+.chat-kpi {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  border: 1px solid rgba(232, 246, 255, 0.1);
+  border-radius: 8px;
+  background: rgba(10, 15, 24, 0.7);
+  font: 400 10px/1.3 Inter, sans-serif;
+  color: rgba(232, 246, 255, 0.6);
+}
+.chat-kpi-num { font: 600 16px/1.1 'IBM Plex Mono', monospace; color: #00CCFF; }
+@media (max-width: 560px) {
+  .chat-demo { grid-template-columns: minmax(0, 1fr); padding: 10px; }
+  .chat-side { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .chat-msg, .chat-typing i { animation: none; }
+}
+.chat-msg:has(> .chat-typing) { padding: 0; }
+
+/* Analítica de Robo: panel de eventos sincronizado con el video */
+.cam-events {
+  position: absolute;
+  top: 34px;
+  right: 10px;
+  bottom: 38px;
+  width: min(46%, 250px);
+  display: flex;
+  flex-direction: column;
+  border: 1px solid rgba(232, 246, 255, 0.14);
+  border-radius: 6px;
+  background: rgba(7, 9, 13, 0.78);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  font: 500 10.5px/1.35 'IBM Plex Mono', ui-monospace, monospace;
+  color: #E8F6FF;
+  overflow: hidden;
+  pointer-events: none;
+}
+.cam-events-head {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 9px;
+  border-bottom: 1px solid rgba(232, 246, 255, 0.1);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 9.5px;
+  color: rgba(232, 246, 255, 0.7);
+}
+.cam-events-count { color: #FF4D6D; }
+.cam-events-list {
+  list-style: none;
+  margin: 0;
+  padding: 6px;
+  display: flex;
+  flex-direction: column-reverse;
+  justify-content: flex-end;
+  gap: 5px;
+  overflow: hidden;
+  flex: 1;
+}
+.cam-events-list li {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 6px;
+  padding: 5px 6px;
+  border-left: 2px solid #00CCFF;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 0 3px 3px 0;
+  animation: cam-ev-in 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.cam-events-list li time { color: rgba(232, 246, 255, 0.5); }
+.cam-events-list li b { display: block; font-weight: 500; }
+.cam-events-list li small { display: block; color: rgba(232, 246, 255, 0.6); font-size: 9.5px; }
+.cam-events-list li.ok { border-color: #3DDC97; }
+.cam-events-list li.warn { border-color: #FFD166; }
+.cam-events-list li.warn b { color: #FFD166; }
+.cam-events-list li.alert { border-color: #FF4D6D; background: rgba(255, 77, 109, 0.16); }
+.cam-events-list li.alert b { color: #FF4D6D; }
+@keyframes cam-ev-in { from { opacity: 0; transform: translateX(10px); } to { opacity: 1; transform: none; } }
+.cam-event.is-alert {
+  border-color: #FF4D6D;
+  background: rgba(255, 77, 109, 0.25);
+  color: #fff;
+  animation: cam-alert 0.6s steps(1, end) 4;
+}
+@keyframes cam-alert { 50% { background: rgba(255, 77, 109, 0.6); } }
+.cam-feed.is-alert .cam-screen::after { background-color: transparent; box-shadow: inset 0 0 0 2px rgba(255, 77, 109, 0.85); opacity: 1; }
+/* formato VMS: imagen completa arriba y eventos debajo */
+.portfolio-card .cam-feed-vms,
+.portfolio-card.featured .cam-feed-vms {
+  display: flex;
+  flex-direction: column;
+  aspect-ratio: auto;
+  background: #05070a;
+}
+.cam-screen {
+  position: relative;
+  flex: none;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  background: #000;
+}
+.cam-feed-vms .cam-events {
+  position: static;
+  width: auto;
+  flex: 1;
+  min-height: 118px;
+  border: 0;
+  border-top: 1px solid rgba(232, 246, 255, 0.1);
+  border-radius: 0;
+  background: #07090d;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+.cam-feed-vms .cam-events-list { flex-direction: column-reverse; justify-content: flex-end; }

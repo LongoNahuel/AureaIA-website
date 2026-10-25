@@ -592,6 +592,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const list = panel.querySelector('.cam-events-list');
     const count = panel.querySelector('.cam-events-count');
     const live = fig && fig.querySelector('[data-live-event]');
+    const tipoCuenta = panel.dataset.countType || 'alert';
+    const [sing, plur] = (panel.dataset.countLabel || 'alerta|alertas').split('|');
+    const idle = live ? live.textContent : '';
     let eventos = [];
     try { eventos = JSON.parse(panel.dataset.events); } catch (_) { return; }
     if (!video || !list) return;
@@ -599,8 +602,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const mmss = t => `${String(Math.floor(t / 60)).padStart(2, '0')}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
     function reiniciar() {
       list.innerHTML = ''; mostrados = 0; alertas = 0;
-      if (count) count.textContent = '0 alertas';
-      if (live) { live.textContent = 'Monitoreando zonas'; live.classList.remove('is-alert'); }
+      if (count) count.textContent = `0 ${plur}`;
+      if (live) { live.textContent = idle; live.classList.remove('is-alert'); }
       fig.classList.remove('is-alert');
     }
     video.addEventListener('timeupdate', () => {
@@ -617,14 +620,52 @@ document.addEventListener('DOMContentLoaded', () => {
           live.textContent = tipo === 'alert' ? `⚠ ${titulo}` : `${titulo}: ${detalle.split(' · ')[0]}`;
           live.classList.toggle('is-alert', tipo === 'alert');
         }
-        if (tipo === 'alert') {
+        if (tipo === tipoCuenta) {
           alertas++;
-          if (count) count.textContent = `${alertas} alerta${alertas > 1 ? 's' : ''}`;
+          if (count) count.textContent = `${alertas} ${alertas === 1 ? sing : plur}`;
+        }
+        if (tipo === 'alert') {
           fig.classList.add('is-alert');
           setTimeout(() => fig.classList.remove('is-alert'), 2600);
         }
       }
     });
     video.addEventListener('seeked', () => { if (video.currentTime < 0.5) reiniciar(); });
+  });
+})();
+
+// Detección de Mirada: distribución del tiempo por dirección, calculada en vivo con la serie real del video
+(function initCamStats() {
+  document.querySelectorAll('.cam-stats').forEach(panel => {
+    const fig = panel.closest('.cam-feed');
+    const video = fig && fig.querySelector('.cam-video');
+    const list = panel.querySelector('.cam-stats-list');
+    const now = panel.querySelector('.cam-stats-now');
+    let serie = [];
+    try { serie = JSON.parse(panel.dataset.series); } catch (_) { return; }
+    if (!video || !list || !serie.length) return;
+    const nombres = [...new Set(serie.map(s => s[1]))];
+    list.innerHTML = nombres.map(n => `<li data-dir="${n}"><span>${n.replace('-', '·')}</span><i><b></b></i><em>0%</em></li>`).join('');
+    const filas = Object.fromEntries([...list.children].map(li => [li.dataset.dir, li]));
+    video.addEventListener('timeupdate', () => {
+      const t = video.currentTime, acum = {};
+      let actual = serie[0];
+      for (let i = 0; i < serie.length; i++) {
+        const [ti, dir] = serie[i];
+        if (ti > t) break;
+        actual = serie[i];
+        const fin = Math.min(t, i + 1 < serie.length ? serie[i + 1][0] : t);
+        acum[dir] = (acum[dir] || 0) + Math.max(0, fin - ti);
+      }
+      const total = Object.values(acum).reduce((a, b) => a + b, 0) || 1;
+      nombres.forEach(n => {
+        const pct = Math.round(100 * (acum[n] || 0) / total);
+        const li = filas[n];
+        li.querySelector('b').style.width = pct + '%';
+        li.querySelector('em').textContent = pct + '%';
+        li.classList.toggle('is-now', n === actual[1]);
+      });
+      if (now) now.textContent = `${actual[1]} · ${actual[2]}%`;
+    });
   });
 })();

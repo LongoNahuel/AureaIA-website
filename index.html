@@ -250,11 +250,17 @@
           </div>
         </article>
         <article class="portfolio-card reveal">
-          <figure class="portfolio-media cam-feed">
-            <video class="cam-video" src="videos/casos/deteccion-manos.mp4" poster="images/casos/deteccion-manos.jpg" muted loop playsinline preload="none" aria-label="Video real de la analítica: Detección de Manos"></video>
-            <div class="cam-osd" aria-hidden="true">
-              <div class="cam-osd-top"><span class="cam-rec">REC</span><span class="cam-name">CAM 02 · Puesto de trabajo</span><span class="cam-clock"></span></div>
-              <div class="cam-osd-bottom"><span class="cam-event">21 puntos por mano</span><span class="cam-ia">Analítica IA · En vivo</span></div>
+          <figure class="portfolio-media cam-feed cam-feed-vms">
+            <div class="cam-screen">
+              <video class="cam-video" src="videos/casos/deteccion-manos.mp4" poster="images/casos/deteccion-manos.jpg" muted loop playsinline preload="none" aria-label="Video real de la analítica: Detección de Manos"></video>
+              <div class="cam-osd" aria-hidden="true">
+                <div class="cam-osd-top"><span class="cam-rec">REC</span><span class="cam-name">CAM 02 · Puesto de trabajo</span><span class="cam-clock"></span></div>
+                <div class="cam-osd-bottom"><span class="cam-event" data-live-event>Seguimiento de manos</span><span class="cam-ia">Analítica IA · En vivo</span></div>
+              </div>
+            </div>
+            <div class="cam-events" aria-hidden="true" data-count-type="warn" data-count-label="gesto|gestos" data-idle="Esperando manos en cámara" data-events='[[0.0, "info", "2 manos detectadas", "42 puntos · seguimiento 3D"], [0.05, "warn", "Gesto detectado", "Mano abierta · acción disparada"], [0.9, "warn", "Gesto detectado", "Mano abierta · acción disparada"], [1.8, "warn", "Gesto detectado", "Mano abierta · acción disparada"], [2.4, "info", "1 mano detectada", "21 puntos · seguimiento 3D"], [3.6, "warn", "Gesto detectado", "Mano abierta · acción disparada"], [4.9, "info", "2 manos detectadas", "42 puntos · seguimiento 3D"], [5.4, "warn", "Gesto detectado", "Mano abierta · acción disparada"]]'>
+              <div class="cam-events-head"><span>Eventos</span><span class="cam-events-count">0 gestos</span></div>
+              <ol class="cam-events-list"></ol>
             </div>
           </figure>
           <div class="portfolio-info">
@@ -270,11 +276,17 @@
           </div>
         </article>
         <article class="portfolio-card reveal">
-          <figure class="portfolio-media cam-feed">
-            <video class="cam-video" src="videos/casos/deteccion-mirada.mp4" poster="images/casos/deteccion-mirada.jpg" muted loop playsinline preload="none" aria-label="Video real de la analítica: Detección de Mirada"></video>
-            <div class="cam-osd" aria-hidden="true">
-              <div class="cam-osd-top"><span class="cam-rec">REC</span><span class="cam-name">CAM 03 · Puesto de atención</span><span class="cam-clock"></span></div>
-              <div class="cam-osd-bottom"><span></span><span class="cam-ia">Analítica IA · En vivo</span></div>
+          <figure class="portfolio-media cam-feed cam-feed-vms">
+            <div class="cam-screen">
+              <video class="cam-video" src="videos/casos/deteccion-mirada.mp4" poster="images/casos/deteccion-mirada.jpg" muted loop playsinline preload="none" aria-label="Video real de la analítica: Detección de Mirada"></video>
+              <div class="cam-osd" aria-hidden="true">
+                <div class="cam-osd-top"><span class="cam-rec">REC</span><span class="cam-name">CAM 03 · Puesto de atención</span><span class="cam-clock"></span></div>
+                <div class="cam-osd-bottom"><span></span><span class="cam-ia">Analítica IA · En vivo</span></div>
+              </div>
+            </div>
+            <div class="cam-stats" aria-hidden="true" data-series='[[0.0, "ARRIBA-DERECHA", 90], [0.5, "ARRIBA", 70], [1.0, "ARRIBA-IZQUIERDA", 70], [1.5, "ARRIBA-DERECHA", 70], [2.5, "ARRIBA-IZQUIERDA", 90], [3.0, "ARRIBA-DERECHA", 70], [4.0, "ARRIBA-IZQUIERDA", 70], [4.5, "ARRIBA-DERECHA", 70], [5.0, "ABAJO-DERECHA", 70], [5.5, "ARRIBA-IZQUIERDA", 90], [6.0, "ARRIBA-DERECHA", 90], [6.5, "ARRIBA-IZQUIERDA", 70], [7.0, "ARRIBA-DERECHA", 90], [7.5, "CENTRO", 70], [8.0, "DERECHA", 70]]'>
+              <div class="cam-events-head"><span>Distribución de la mirada</span><span class="cam-stats-now">—</span></div>
+              <ol class="cam-stats-list"></ol>
             </div>
           </figure>
           <div class="portfolio-info">
@@ -289,6 +301,97 @@
             <ul class="caso-tech" aria-label="Tecnologías"><li>MediaPipe Face Mesh</li><li>OpenCV</li><li>Python</li></ul>
           </div>
         </article>
+        <div class="portfolio-subhead reveal">
+          <h3>Demos de analítica sobre video público</h3>
+          <p>La misma tecnología aplicada a otros escenarios, procesada por AureaIA sobre videos de cámaras de libre uso.</p>
+        </div>
+        <!-- caso:aforo-comercio -->
+        <article class="portfolio-card featured reveal">
+          <figure class="portfolio-media cam-feed cam-feed-vms">
+            <div class="cam-screen">
+              <video class="cam-video" src="videos/casos/aforo-comercio.mp4" poster="images/casos/aforo-comercio.jpg" muted loop playsinline preload="none" aria-label="Demo de analítica de aforo y permanencia sobre video de un pasillo comercial"></video>
+              <div class="cam-osd" aria-hidden="true">
+                <div class="cam-osd-top"><span class="cam-rec">REC</span><span class="cam-name">CAM 05 · Pasillo de tienda</span><span class="cam-clock"></span></div>
+                <div class="cam-osd-bottom"><span class="cam-event" data-live-event>Contando personas</span><span class="cam-ia">Analítica IA · En vivo</span></div>
+              </div>
+            </div>
+            <div class="cam-events" aria-hidden="true" data-count-type="warn" data-count-label="permanencia|permanencias" data-events='[[0.13, "info", "Persona en pasillo", "Persona ID 01"], [0.13, "info", "Persona en pasillo", "Persona ID 02"], [0.6, "info", "Persona en pasillo", "Persona ID 03"], [10.14, "warn", "Permanencia > 10 s", "ID 01 · interés en góndola"], [10.14, "warn", "Permanencia > 10 s", "ID 02 · interés en góndola"], [10.14, "info", "Ingreso al pasillo", "Persona ID 04"], [10.61, "warn", "Permanencia > 10 s", "ID 03 · interés en góndola"], [12.01, "info", "Ingreso al pasillo", "Persona ID 05"], [20.15, "warn", "Permanencia > 10 s", "ID 04 · interés en góndola"]]'>
+              <div class="cam-events-head"><span>Eventos</span><span class="cam-events-count">0 permanencias</span></div>
+              <ol class="cam-events-list"></ol>
+            </div>
+          </figure>
+          <div class="portfolio-info">
+            <span class="portfolio-tag">Retail</span>
+            <h3>Aforo y Permanencia en Comercio</h3>
+            <p>Cuenta en tiempo real cuántas personas hay en un pasillo y cuánto tiempo pasa cada una frente a la góndola. Cada cliente recibe un ID que se mantiene aunque se cruce con otros, y el sistema marca a quienes superan el tiempo de permanencia configurado.</p>
+            <ul class="caso-puntos">
+              <li>Aforo instantáneo y pico de ocupación por zona.</li>
+              <li>Tiempo de permanencia por persona, con aviso al superar el umbral.</li>
+              <li>Datos para medir interés por góndola, optimizar layout y dimensionar personal.</li>
+            </ul>
+            <ul class="caso-tech" aria-label="Tecnologías"><li>YOLOX</li><li>Tracking multi-objeto</li><li>OpenCV</li><li>Python</li></ul>
+            <p class="caso-fuente">Demo sobre video público: Intel IoT DevKit, “store-aisle-detection”, <a href="https://github.com/intel-iot-devkit/sample-videos" target="_blank" rel="noopener">CC BY 4.0</a>. Detección y tracking procesados por AureaIA.</p>
+          </div>
+        </article>
+        <!-- /caso:aforo-comercio -->
+        <!-- caso:zona-restringida -->
+        <article class="portfolio-card reveal">
+          <figure class="portfolio-media cam-feed cam-feed-vms">
+            <div class="cam-screen">
+              <video class="cam-video" src="videos/casos/zona-restringida.mp4" poster="images/casos/zona-restringida.jpg" muted loop playsinline preload="none" aria-label="Demo de detección de intrusión en zona restringida sobre video de un depósito"></video>
+              <div class="cam-osd" aria-hidden="true">
+                <div class="cam-osd-top"><span class="cam-rec">REC</span><span class="cam-name">CAM 06 · Depósito</span><span class="cam-clock"></span></div>
+                <div class="cam-osd-bottom"><span class="cam-event" data-live-event>Zona sin personas</span><span class="cam-ia">Analítica IA · En vivo</span></div>
+              </div>
+            </div>
+            <div class="cam-events" aria-hidden="true" data-count-type="alert" data-count-label="intrusión|intrusiones" data-events='[[3.52, "alert", "INTRUSIÓN", "Zona restringida · ID 01"], [14.53, "ok", "Zona liberada", "ID 01 salió de la zona"]]'>
+              <div class="cam-events-head"><span>Eventos</span><span class="cam-events-count">0 intrusiones</span></div>
+              <ol class="cam-events-list"></ol>
+            </div>
+          </figure>
+          <div class="portfolio-info">
+            <span class="portfolio-tag">Industria</span>
+            <h3>Intrusión en Zona Restringida</h3>
+            <p>Vigila áreas de riesgo en depósitos y plantas: la zona se dibuja sobre la imagen de la cámara y, cuando una persona la pisa, el sistema la marca en rojo y genera la alerta al instante. También registra cuándo la zona vuelve a quedar libre.</p>
+            <ul class="caso-puntos">
+              <li>Zonas poligonales configurables sobre cualquier cámara IP.</li>
+              <li>Alerta en tiempo real con ID de la persona, hora y evidencia en video.</li>
+              <li>Ideal para áreas de máquinas, autoelevadores, cargas suspendidas o accesos restringidos.</li>
+            </ul>
+            <ul class="caso-tech" aria-label="Tecnologías"><li>YOLOX</li><li>Tracking multi-objeto</li><li>OpenCV</li><li>Python</li></ul>
+            <p class="caso-fuente">Demo sobre video público: Intel IoT DevKit, “worker-zone-detection”, <a href="https://github.com/intel-iot-devkit/sample-videos" target="_blank" rel="noopener">CC BY 4.0</a>. Detección y tracking procesados por AureaIA.</p>
+          </div>
+        </article>
+        <!-- /caso:zona-restringida -->
+        <!-- caso:conteo-accesos -->
+        <article class="portfolio-card reveal">
+          <figure class="portfolio-media cam-feed cam-feed-vms">
+            <div class="cam-screen">
+              <video class="cam-video" src="videos/casos/conteo-accesos.mp4" poster="images/casos/conteo-accesos.jpg" muted loop playsinline preload="none" aria-label="Demo de conteo de personas con línea virtual sobre video de un acceso"></video>
+              <div class="cam-osd" aria-hidden="true">
+                <div class="cam-osd-top"><span class="cam-rec">REC</span><span class="cam-name">CAM 07 · Acceso principal</span><span class="cam-clock"></span></div>
+                <div class="cam-osd-bottom"><span class="cam-event" data-live-event>Contando personas</span><span class="cam-ia">Analítica IA · En vivo</span></div>
+              </div>
+            </div>
+            <div class="cam-events" aria-hidden="true" data-count-type="ok" data-count-label="ingreso|ingresos" data-events='[[2.5, "ok", "Ingreso", "ID 01 · total 1"], [2.67, "ok", "Ingreso", "ID 02 · total 2"], [15.75, "ok", "Ingreso", "ID 04 · total 3"], [15.92, "ok", "Ingreso", "ID 03 · total 4"], [16.5, "ok", "Ingreso", "ID 05 · total 5"]]'>
+              <div class="cam-events-head"><span>Eventos</span><span class="cam-events-count">0 ingresos</span></div>
+              <ol class="cam-events-list"></ol>
+            </div>
+          </figure>
+          <div class="portfolio-info">
+            <span class="portfolio-tag">Accesos</span>
+            <h3>Conteo de Personas en Accesos</h3>
+            <p>Una línea virtual sobre la imagen de la cámara cuenta cada persona que la cruza y distingue el sentido: ingreso o egreso. Funciona con varias personas a la vez porque sigue a cada una con su propio ID, sin contar dos veces a la misma.</p>
+            <ul class="caso-puntos">
+              <li>Conteo bidireccional por línea virtual, con varias personas en simultáneo.</li>
+              <li>Totales en vivo e histórico por franja horaria para medir el flujo.</li>
+              <li>Para locales, oficinas, eventos y control de aforo en edificios.</li>
+            </ul>
+            <ul class="caso-tech" aria-label="Tecnologías"><li>YOLOX</li><li>Tracking multi-objeto</li><li>OpenCV</li><li>Python</li></ul>
+            <p class="caso-fuente">Demo sobre video público: Intel IoT DevKit, “people-detection”, <a href="https://github.com/intel-iot-devkit/sample-videos" target="_blank" rel="noopener">CC BY 4.0</a>. Detección y tracking procesados por AureaIA.</p>
+          </div>
+        </article>
+        <!-- /caso:conteo-accesos -->
       </div>
     </div>
   </section>

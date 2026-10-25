@@ -1903,7 +1903,77 @@ textarea { resize: vertical; }
   .cam-captures-list span { flex-direction: column; gap: 0; }
 }
 .cam-events-list:empty::before {
-  content: 'Monitoreando 3 zonas · sin eventos';
+  content: 'Monitoreando · sin eventos';
   padding: 6px;
   color: rgba(232, 246, 255, 0.45);
 }
+
+/* Detección de Mirada: distribución en vivo */
+.cam-stats {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid rgba(232, 246, 255, 0.1);
+  background: #07090d;
+  font: 500 10px/1.3 'IBM Plex Mono', ui-monospace, monospace;
+  color: #E8F6FF;
+}
+.cam-stats .cam-events-head {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 9px;
+  border-bottom: 1px solid rgba(232, 246, 255, 0.08);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 9.5px;
+  color: rgba(232, 246, 255, 0.7);
+}
+.cam-stats-now { color: #C6F432; }
+.cam-stats-list {
+  list-style: none;
+  margin: 0;
+  padding: 8px 9px;
+  display: grid;
+  gap: 5px;
+}
+.cam-stats-list li {
+  display: grid;
+  grid-template-columns: 9.5em minmax(0, 1fr) 3em;
+  align-items: center;
+  gap: 8px;
+  color: rgba(232, 246, 255, 0.65);
+}
+.cam-stats-list i {
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(232, 246, 255, 0.08);
+  overflow: hidden;
+}
+.cam-stats-list b {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: #00CCFF;
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+.cam-stats-list em { font-style: normal; text-align: right; }
+.cam-stats-list li.is-now { color: #C6F432; }
+.cam-stats-list li.is-now b { background: #C6F432; }
+.caso-fuente {
+  margin: 0.9rem 0 0;
+  font-size: 0.72rem !important;
+  line-height: 1.5;
+  color: rgba(232, 246, 255, 0.45);
+}
+.caso-fuente a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+
+/* Separador de demos */
+.portfolio-subhead {
+  grid-column: 1 / -1;
+  margin: 2.2rem 0 0.4rem;
+  padding-top: 1.6rem;
+  border-top: 1px solid var(--border);
+}
+.portfolio-subhead h3 { margin: 0 0 0.35rem; font-size: 1.15rem; }
+.portfolio-subhead p { margin: 0; font-size: 0.88rem; color: rgba(232, 246, 255, 0.55); }

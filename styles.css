@@ -1524,3 +1524,88 @@ textarea { resize: vertical; }
 @media (prefers-reduced-motion: reduce) {
   .fondo-leyenda { transition: none; }
 }
+
+/* ==========================================================================
+   Casos de éxito con video real: marco tipo VMS / cámara IP
+   ========================================================================== */
+.cam-feed { background: #000; }
+.portfolio-media .cam-video {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  object-position: center;
+  background: #000;
+}
+.cam-osd {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  font: 500 11px/1 'IBM Plex Mono', ui-monospace, monospace;
+  color: #E8F6FF;
+  letter-spacing: 0.02em;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
+}
+.cam-osd-top, .cam-osd-bottom {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.55rem 0.7rem;
+}
+.cam-osd-top { background: linear-gradient(rgba(0, 0, 0, 0.6), transparent); }
+.cam-osd-bottom { background: linear-gradient(transparent, rgba(0, 0, 0, 0.65)); justify-content: space-between; }
+.cam-rec {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: #FF4D6D;
+  font-weight: 500;
+}
+.cam-rec::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #FF4D6D;
+  box-shadow: 0 0 6px #FF4D6D;
+  animation: cam-rec-blink 1.2s steps(1, end) infinite;
+}
+@keyframes cam-rec-blink { 50% { opacity: 0.15; } }
+.cam-name { opacity: 0.9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.cam-clock { margin-left: auto; opacity: 0.85; white-space: nowrap; }
+.cam-event {
+  padding: 0.25rem 0.45rem;
+  border: 1px solid rgba(255, 209, 102, 0.7);
+  background: rgba(255, 209, 102, 0.12);
+  color: #FFD166;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+.cam-ia { color: #00CCFF; opacity: 0.9; white-space: nowrap; }
+/* esquinas tipo visor */
+.cam-feed::after {
+  content: '';
+  position: absolute;
+  inset: 8px;
+  pointer-events: none;
+  background:
+    linear-gradient(#00CCFF, #00CCFF) top left / 14px 1.5px no-repeat,
+    linear-gradient(#00CCFF, #00CCFF) top left / 1.5px 14px no-repeat,
+    linear-gradient(#00CCFF, #00CCFF) top right / 14px 1.5px no-repeat,
+    linear-gradient(#00CCFF, #00CCFF) top right / 1.5px 14px no-repeat,
+    linear-gradient(#00CCFF, #00CCFF) bottom left / 14px 1.5px no-repeat,
+    linear-gradient(#00CCFF, #00CCFF) bottom left / 1.5px 14px no-repeat,
+    linear-gradient(#00CCFF, #00CCFF) bottom right / 14px 1.5px no-repeat,
+    linear-gradient(#00CCFF, #00CCFF) bottom right / 1.5px 14px no-repeat;
+  opacity: 0.55;
+}
+@media (max-width: 480px) {
+  .cam-osd { font-size: 10px; }
+  .cam-ia { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cam-rec::before { animation: none; }
+}

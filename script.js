@@ -499,3 +499,29 @@ document.addEventListener('DOMContentLoaded', () => {
     banner?.classList.remove('show');
   });
 });
+
+// Casos de éxito: los videos solo se reproducen cuando están en pantalla
+(function initCamFeeds() {
+  const videos = document.querySelectorAll('.cam-video');
+  if (!videos.length) return;
+  const reducido = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (!reducido && 'IntersectionObserver' in window) {
+    const io = new IntersectionObserver(entries => {
+      entries.forEach(e => {
+        const v = e.target;
+        if (e.isIntersecting) { v.preload = 'auto'; v.play().catch(() => {}); }
+        else v.pause();
+      });
+    }, { threshold: 0.25 });
+    videos.forEach(v => io.observe(v));
+  }
+  // reloj del visor
+  const relojes = document.querySelectorAll('.cam-clock');
+  const dos = n => String(n).padStart(2, '0');
+  const tic = () => {
+    const d = new Date();
+    const txt = `${dos(d.getDate())}/${dos(d.getMonth() + 1)}/${d.getFullYear()} ${dos(d.getHours())}:${dos(d.getMinutes())}:${dos(d.getSeconds())}`;
+    relojes.forEach(r => { r.textContent = txt; });
+  };
+  if (relojes.length) { tic(); setInterval(tic, 1000); }
+})();

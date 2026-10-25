@@ -227,6 +227,15 @@ document.querySelectorAll('a[href^="#"]').forEach(anchor => {
       animate(el, { opacity: [0, 1], y: [24, 0] }, { duration: 0.6, delay: i * 0.12, easing: [0.25, 1, 0.5, 1] });
     }, { amount: 0.15 });
   });
+
+  // Resto de elementos .reveal (configurador, pasos, separadores, llamados a la acción…)
+  const manejados = '.section-header.reveal, .service-card.reveal, .portfolio-card.reveal, .contact-wrapper .reveal';
+  document.querySelectorAll('.reveal').forEach(el => {
+    if (el.matches(manejados)) return;
+    inView(el, () => {
+      animate(el, { opacity: [0, 1], y: [24, 0] }, { duration: 0.6, easing: [0.25, 1, 0.5, 1] });
+    }, { amount: 0.1 });
+  });
 })();
 
 // Contact form → WhatsApp

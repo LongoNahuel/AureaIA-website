@@ -669,3 +669,62 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 })();
+
+// A medida: configurador de analítica → especificación en vivo → formulario de contacto
+(function initConfigurador() {
+  const root = document.getElementById('configurador');
+  const code = document.getElementById('spec-code');
+  if (!root || !code) return;
+  const range = document.getElementById('cfg-camaras');
+  const out = document.getElementById('cfg-camaras-out');
+  const esc = t => t.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  const valores = g => [...root.querySelectorAll(`[data-group="${g}"] .cfg-chip.is-on`)].map(b => b.dataset.value);
+
+  root.querySelectorAll('.cfg-options').forEach(grupo => {
+    const unico = grupo.hasAttribute('data-single');
+    grupo.querySelectorAll('.cfg-chip').forEach(btn => {
+      btn.setAttribute('aria-pressed', btn.classList.contains('is-on'));
+      btn.addEventListener('click', () => {
+        if (unico) grupo.querySelectorAll('.cfg-chip').forEach(b => { b.classList.remove('is-on'); b.setAttribute('aria-pressed', 'false'); });
+        else if (btn.classList.contains('is-on') && grupo.querySelectorAll('.is-on').length === 1) return; // al menos una opción
+        btn.classList.toggle('is-on', unico ? true : !btn.classList.contains('is-on'));
+        btn.setAttribute('aria-pressed', btn.classList.contains('is-on'));
+        render();
+      });
+    });
+  });
+  range?.addEventListener('input', render);
+
+  function spec() {
+    return { escenario: valores('escenario')[0] || 'Otro', analiticas: valores('analiticas'), alertas: valores('alertas'), camaras: Number(range?.value || 1) };
+  }
+  function render() {
+    const s = spec();
+    if (out) out.textContent = s.camaras;
+    const lista = (arr, ind = '  ') => arr.map(v => `${ind}- <span class="s">${esc(v)}</span>`).join('\n');
+    code.innerHTML =
+`<span class="c"># Analítica a medida · AureaIA</span>
+<span class="k">escenario:</span> <span class="s">${esc(s.escenario)}</span>
+<span class="k">camaras:</span> <span class="s">${s.camaras}</span>  <span class="c"># IP vía RTSP / ONVIF</span>
+<span class="k">analiticas:</span>
+${lista(s.analiticas)}
+<span class="k">reglas:</span>
+  <span class="k">zonas:</span> <span class="s">a definir sobre cada cámara</span>
+  <span class="k">horarios:</span> <span class="s">según operación</span>
+  <span class="k">umbrales:</span> <span class="s">calibrados con tus imágenes</span>
+<span class="k">alertas:</span>
+${lista(s.alertas)}`;
+  }
+  render();
+
+  document.getElementById('spec-send')?.addEventListener('click', () => {
+    const s = spec();
+    const msg = `Hola, quiero una analítica a medida:\n• Escenario: ${s.escenario}\n• Cámaras: ${s.camaras}\n• Detectar: ${s.analiticas.join(', ')}\n• Alertas por: ${s.alertas.join(', ')}\n\nDetalle de mi requerimiento: `;
+    const ta = document.querySelector('#contactForm [name="mensaje"]');
+    if (ta) {
+      ta.value = msg;
+      document.getElementById('contacto')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      setTimeout(() => { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }, 700);
+    }
+  });
+})();

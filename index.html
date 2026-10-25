@@ -44,6 +44,7 @@
         <li><a href="#inicio">Inicio</a></li>
         <li><a href="#servicios">Servicios</a></li>
         <li><a href="#historias">Portfolio</a></li>
+        <li><a href="#a-medida">A medida</a></li>
         <li><a href="#contacto">Contacto</a></li>
       </ul>
     </div>
@@ -160,7 +161,7 @@
     <div class="container">
       <div class="section-header reveal">
         <h2>Casos de Éxito</h2>
-        <p>Soluciones de IA aplicadas en escenarios reales.</p>
+        <p>Soluciones de IA aplicadas en escenarios reales. Cada algoritmo se adapta a las reglas, cámaras y necesidades de cada cliente.</p>
       </div>
       <!-- Casos con video real recortado a la imagen de cámara (videos/casos). El ChatBot conserva su ilustración SVG. -->
       <div class="portfolio-grid">
@@ -392,6 +393,91 @@
           </div>
         </article>
         <!-- /caso:conteo-accesos -->
+        <a href="#a-medida" class="portfolio-cta reveal">
+          <span><strong>¿Tu escenario es otro?</strong> Adaptamos cualquiera de estos algoritmos, o creamos uno nuevo, según tu requerimiento.</span>
+          <span class="portfolio-cta-arrow" aria-hidden="true">Armá tu analítica →</span>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- A medida -->
+  <section class="custom-section" id="a-medida">
+    <div class="container">
+      <div class="section-header reveal">
+        <h2>Cada algoritmo, a la medida de tu operación</h2>
+        <p>Ninguna analítica viene cerrada. Zonas, reglas, umbrales, objetos a detectar y forma de alertar se definen según tu requerimiento y tu infraestructura de cámaras.</p>
+      </div>
+
+      <div class="custom-layout">
+        <div class="custom-config reveal" id="configurador">
+          <div class="cfg-block">
+            <span class="cfg-label">1 · Escenario</span>
+            <div class="cfg-options" data-group="escenario" data-single>
+              <button type="button" class="cfg-chip is-on" data-value="Comercio">Comercio</button>
+              <button type="button" class="cfg-chip" data-value="Industria / depósito">Industria / depósito</button>
+              <button type="button" class="cfg-chip" data-value="Accesos / edificio">Accesos / edificio</button>
+              <button type="button" class="cfg-chip" data-value="Oficinas">Oficinas</button>
+              <button type="button" class="cfg-chip" data-value="Estacionamiento">Estacionamiento</button>
+              <button type="button" class="cfg-chip" data-value="Otro">Otro</button>
+            </div>
+          </div>
+          <div class="cfg-block">
+            <span class="cfg-label">2 · Qué necesitás detectar</span>
+            <div class="cfg-options" data-group="analiticas">
+              <button type="button" class="cfg-chip is-on" data-value="Conteo de personas">Conteo de personas</button>
+              <button type="button" class="cfg-chip" data-value="Intrusión en zonas">Intrusión en zonas</button>
+              <button type="button" class="cfg-chip" data-value="Tiempo de permanencia">Tiempo de permanencia</button>
+              <button type="button" class="cfg-chip" data-value="Comportamiento sospechoso">Comportamiento sospechoso</button>
+              <button type="button" class="cfg-chip" data-value="Uso de celular">Uso de celular</button>
+              <button type="button" class="cfg-chip" data-value="Vehículos">Vehículos</button>
+              <button type="button" class="cfg-chip" data-value="Gestos / manos">Gestos / manos</button>
+              <button type="button" class="cfg-chip" data-value="Objeto específico (entrenamiento propio)">Objeto específico</button>
+            </div>
+          </div>
+          <div class="cfg-block">
+            <span class="cfg-label">3 · Cómo querés recibir las alertas</span>
+            <div class="cfg-options" data-group="alertas">
+              <button type="button" class="cfg-chip is-on" data-value="WhatsApp">WhatsApp</button>
+              <button type="button" class="cfg-chip" data-value="Email">Email</button>
+              <button type="button" class="cfg-chip" data-value="VMS / NVR">VMS / NVR</button>
+              <button type="button" class="cfg-chip" data-value="Dashboard web">Dashboard web</button>
+              <button type="button" class="cfg-chip" data-value="API / webhook">API / webhook</button>
+            </div>
+          </div>
+          <div class="cfg-block">
+            <label class="cfg-label" for="cfg-camaras">4 · Cantidad de cámaras: <output id="cfg-camaras-out">4</output></label>
+            <input type="range" id="cfg-camaras" min="1" max="64" value="4" class="cfg-range">
+          </div>
+        </div>
+
+        <div class="custom-spec reveal">
+          <div class="code-window">
+            <div class="code-header">
+              <div class="code-dots"><span class="dot dot-red"></span><span class="dot dot-yellow"></span><span class="dot dot-green"></span></div>
+              <span class="code-title">mi_analitica.yaml</span>
+            </div>
+            <pre class="spec-code" id="spec-code" aria-live="polite"></pre>
+          </div>
+          <button type="button" class="btn-primary spec-send" id="spec-send">Enviar este requerimiento</button>
+          <p class="spec-note">Se carga en el formulario de contacto para que lo completes y nos lo envíes.</p>
+        </div>
+      </div>
+
+      <ol class="custom-steps">
+        <li class="reveal"><span class="step-num">01</span><h3>Relevamiento</h3><p>Entendemos el problema, el escenario y las cámaras que ya tenés instaladas.</p></li>
+        <li class="reveal"><span class="step-num">02</span><h3>Diseño de reglas</h3><p>Definimos zonas, líneas, horarios, umbrales y qué evento dispara cada alerta.</p></li>
+        <li class="reveal"><span class="step-num">03</span><h3>Ajuste con tus imágenes</h3><p>Calibramos el modelo con video de tus cámaras y, si hace falta, lo entrenamos con tus propios objetos.</p></li>
+        <li class="reveal"><span class="step-num">04</span><h3>Integración y soporte</h3><p>Lo conectamos a tu NVR, VMS o sistemas existentes y lo acompañamos en producción.</p></li>
+      </ol>
+
+      <div class="custom-params reveal">
+        <span class="cfg-label">Todo se puede ajustar</span>
+        <ul>
+          <li>Zonas y líneas virtuales</li><li>Horarios de armado</li><li>Umbrales de confianza</li><li>Tiempos de permanencia</li>
+          <li>Clases de objetos</li><li>Modelos entrenados a medida</li><li>Cámaras IP vía RTSP / ONVIF</li><li>Reportes y estadísticas</li>
+          <li>Canales de alerta</li><li>Procesamiento local o en la nube</li>
+        </ul>
       </div>
     </div>
   </section>
@@ -459,6 +545,7 @@
             <li><a href="#inicio">Inicio</a></li>
             <li><a href="#servicios">Servicios</a></li>
             <li><a href="#historias">Portfolio</a></li>
+            <li><a href="#a-medida">A medida</a></li>
             <li><a href="#contacto">Contacto</a></li>
           </ul>
         </div>

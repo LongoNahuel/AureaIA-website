@@ -1841,3 +1841,69 @@ textarea { resize: vertical; }
   backdrop-filter: none;
 }
 .cam-feed-vms .cam-events-list { flex-direction: column-reverse; justify-content: flex-end; }
+.cam-osd-push { margin-left: auto; }
+.cam-event.is-alert-soft { border-color: rgba(255, 77, 109, 0.85); background: rgba(255, 77, 109, 0.2); color: #FFB3C1; }
+
+/* Detección de Celulares: tira de capturas forenses reales */
+.cam-captures {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid rgba(232, 246, 255, 0.1);
+  background: #07090d;
+  font: 500 10px/1.3 'IBM Plex Mono', ui-monospace, monospace;
+  color: #E8F6FF;
+}
+.cam-captures .cam-events-head {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 9px;
+  border-bottom: 1px solid rgba(232, 246, 255, 0.08);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 9.5px;
+  color: rgba(232, 246, 255, 0.7);
+}
+.cam-captures-list {
+  list-style: none;
+  margin: 0;
+  padding: 7px;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+.cam-captures-list li {
+  position: relative;
+  border: 1px solid rgba(255, 77, 109, 0.45);
+  border-radius: 4px;
+  overflow: hidden;
+  background: #000;
+}
+.cam-captures-list img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+}
+.cam-captures-list span {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  justify-content: space-between;
+  gap: 4px;
+  padding: 10px 5px 3px;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.85));
+  font-size: 9px;
+}
+.cam-captures-list time { color: rgba(232, 246, 255, 0.75); }
+.cam-captures-list b { color: #FF8FA3; font-weight: 500; white-space: nowrap; }
+@media (max-width: 1200px) and (min-width: 769px) {
+  .cam-captures-list span { flex-direction: column; gap: 0; }
+}
+.cam-events-list:empty::before {
+  content: 'Monitoreando 3 zonas · sin eventos';
+  padding: 6px;
+  color: rgba(232, 246, 255, 0.45);
+}
